@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Garden Inn Apertura - Grumasa</title>
+<style>
+  :root {
+    --azul: #203864;
+    --rojo: #8B0101;
+    --verde: #1B5E19;
+    --amarillo: #FFF2CD;
+    --gris: #f4f5f7;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--gris); margin: 0; color: #222; }
+  header { background: var(--azul); color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 18px; margin: 0; }
+  .contador { font-size: 14px; opacity: 0.9; }
+  .contenedor { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+
+  /* LOGIN */
+  .login-box { max-width: 360px; margin: 80px auto; background: white; padding: 32px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+  .login-box input { width: 100%; padding: 12px; font-size: 16px; margin: 12px 0; border: 1px solid #ccc; border-radius: 6px; }
+  .login-box button { width: 100%; padding: 12px; background: var(--azul); color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+  .login-box button:hover { background: #16294a; }
+  .error { color: var(--rojo); font-size: 13px; margin-top: 8px; }
+
+  /* DASHBOARD */
+  .tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .tarjeta { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-left: 5px solid #ccc; cursor: pointer; }
+  .tarjeta.verde { border-left-color: var(--verde); }
+  .tarjeta.amarillo { border-left-color: #C79100; }
+  .tarjeta.rojo { border-left-color: var(--rojo); }
+  .tarjeta h3 { margin: 0 0 6px; font-size: 14px; color: var(--azul); }
+  .tarjeta .pct { font-size: 28px; font-weight: bold; }
+  .tarjeta .detalle { font-size: 12px; color: #666; margin-top: 4px; }
+
+  /* TABLA ACTIVIDADES */
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+  th { background: var(--azul); color: white; padding: 10px; text-align: left; font-size: 13px; position: sticky; top: 0; }
+  td { padding: 8px 10px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: top; }
+  tr.completado { background: #F0F9EF; }
+  tr.bloqueado { background: #FDECEC; }
+  select, input.edit, textarea.edit { width: 100%; padding: 4px; font-size: 12px; border: 1px solid #ddd; border-radius: 4px; }
+  .filtros { margin-bottom: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .filtros select, .filtros input { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
+  .volver { background: none; border: 1px solid white; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  .subarea-tag { font-size: 11px; color: var(--azul); font-weight: bold; }
+  .cargando { text-align: center; padding: 40px; color: #999; }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+// ===== CONFIGURA AQUÍ LA URL DE TU DEPLOYMENT DE APPS SCRIPT =====
+const API_URL = 'https://script.google.com/macros/s/AKfycbyRs1CgsCUZ6Uwt40CeKjsAKwYeHA5LFw6552mPndpCVXGXx7-xc_O17HqSBPbnuwZy/exec';
+// ===================================================================
+
+let SESSION = JSON.parse(localStorage.getItem('gia_session') || 'null');
+let ACTIVIDADES_CACHE = [];
+
+function guardarSesion(s) {
+  SESSION = s;
+  localStorage.setItem('gia_session', JSON.stringify(s));
+}
+function cerrarSesion() {
+  localStorage.removeItem('gia_session');
+  SESSION = null;
+  render();
+}
+
+async function apiGet(params) {
+  const url = API_URL + '?' + new URLSearchParams(params).toString();
+  const res = await fetch(url);
+  return res.json();
+}
+async function apiPost(body) {
+  const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(body) });
+  return res.json();
+}
+
+function render() {
+  const app = document.getElementById('app');
+  if (!SESSION) {
+    app.innerHTML = vistaLogin();
+    document.getElementById('btnLogin').onclick = hacerLogin;
+    return;
+  }
+  app.innerHTML = vistaHeader() + '<div class="contenedor" id="main"><div class="cargando">Cargando...</div></div>';
+  cargarDashboard();
+}
+
+function vistaLogin() {
+  return `
+    <div class="login-box">
+      <h2>Garden Inn Apertura</h2>
+      <p style="color:#666;font-size:13px">Ingresa tu código de acceso</p>
+      <input type="password" id="codigo" placeholder="Código">
+      <button id="btnLogin">Entrar</button>
+      <div class="error" id="loginError"></div>
+    </div>`;
+}
+
+async function hacerLogin() {
+  const codigo = document.getElementById('codigo').value.trim();
+  const r = await apiGet({ action: 'login', codigo });
+  if (r.ok) {
+    guardarSesion({ codigo, rol: r.rol, areas: r.areas, nombre: r.nombre });
+    render();
+  } else {
+    document.getElementById('loginError').innerText = r.error || 'Código inválido';
+  }
+}
+
+function vistaHeader() {
+  let titulo;
+  if (SESSION.rol === 'master') titulo = 'Master — ' + (SESSION.nombre || '');
+  else if (SESSION.rol === 'jefe') titulo = 'Jefe (solo lectura) — ' + (SESSION.nombre || '');
+  else titulo = 'Corporativo — ' + (SESSION.nombre || '') + ' (' + (SESSION.areas || []).join(', ') + ')';
+  return `
+    <header>
+      <h1>🏨 Garden Inn Apertura — ${titulo}</h1>
+      <button class="volver" onclick="cerrarSesion()">Salir</button>
+    </header>`;
+}
+
+// ===== DASHBOARD (master / corporativo) =====
+
+async function cargarDashboard() {
+  const r = await apiGet({ action: 'dashboard', codigo: SESSION.codigo });
+  const main = document.getElementById('main');
+  if (!r.ok) { main.innerHTML = '<p>Error: ' + r.error + '</p>'; return; }
+
+  let html = `<h2 style="color:var(--azul)">Días para la apertura: ${r.diasParaApertura}</h2><div class="tarjetas">`;
+  Object.keys(r.porDepto).sort().forEach(depto => {
+    const d = r.porDepto[depto];
+    html += `
+      <div class="tarjeta ${d.semaforo}" onclick="verDetalleDepto('${depto}')">
+        <h3>${depto}</h3>
+        <div class="pct">${d.porcentaje}%</div>
+        <div class="detalle">${d.completado}/${d.total} completadas ${d.vencidas > 0 ? '⚠️ ' + d.vencidas + ' vencidas' : ''}</div>
+      </div>`;
+  });
+  html += '</div><div id="detalleDepto"></div>';
+  main.innerHTML = html;
+}
+
+async function verDetalleDepto(depto) {
+  await cargarActividades(depto, true);
+}
+
+// ===== LISTADO / EDICIÓN DE ACTIVIDADES =====
+
+async function cargarActividades(depto, esDrillDown) {
+  const r = await apiGet({ action: 'listar', depto: depto, codigo: SESSION.codigo });
+  const target = esDrillDown ? document.getElementById('detalleDepto') : document.getElementById('main');
+  if (!r.ok) { target.innerHTML = '<p>Error: ' + r.error + '</p>'; return; }
+
+  ACTIVIDADES_CACHE = r.actividades;
+  const puedeEditar = !!r.puedeEditar;
+
+  let html = `
+    <div class="filtros">
+      <select id="filtroEstatus" onchange="aplicarFiltro()">
+        <option value="">Todos los estatus</option>
+        <option value="Pendiente">Pendiente</option>
+        <option value="En Proceso">En Proceso</option>
+        <option value="Completado">Completado</option>
+        <option value="Bloqueado">Bloqueado</option>
+      </select>
+      <input type="text" id="filtroTexto" placeholder="Buscar actividad..." oninput="aplicarFiltro()">
+    </div>
+    <div id="tablaContenedor"></div>`;
+  target.innerHTML = html;
+  dibujarTabla(ACTIVIDADES_CACHE, puedeEditar);
+}
+
+function aplicarFiltro() {
+  const est = document.getElementById('filtroEstatus').value;
+  const txt = document.getElementById('filtroTexto').value.toLowerCase();
+  const filtradas = ACTIVIDADES_CACHE.filter(a =>
+    (!est || a.estatus === est) && (!txt || a.actividad.toLowerCase().includes(txt))
+  );
+  dibujarTabla(filtradas, SESSION.rol !== 'jefe');
+}
+
+function dibujarTabla(actividades, puedeEditar) {
+  let html = `<table><thead><tr>
+    <th>Subárea / Actividad</th><th>Responsable</th><th>Fecha fin plan</th><th>Estatus</th><th>Comentarios</th>
+  </tr></thead><tbody>`;
+
+  actividades.forEach(a => {
+    const claseFila = a.estatus === 'Completado' ? 'completado' : (a.estatus === 'Bloqueado' ? 'bloqueado' : '');
+    html += `<tr class="${claseFila}">
+      <td><span class="subarea-tag">${a.subarea || ''}</span><br>${a.actividad}</td>
+      <td>${editable(puedeEditar, a.id, 'responsable', a.responsable, 'text')}</td>
+      <td>${editable(puedeEditar, a.id, 'fecha_fin_plan', formatearFecha(a.fecha_fin_plan), 'date')}</td>
+      <td>${editableEstatus(puedeEditar, a.id, a.estatus)}</td>
+      <td>${editable(puedeEditar, a.id, 'comentarios', a.comentarios, 'text')}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('tablaContenedor').innerHTML = html;
+}
+
+function formatearFecha(f) {
+  if (!f) return '';
+  const d = new Date(f);
+  if (isNaN(d)) return '';
+  return d.toISOString().split('T')[0];
+}
+
+function editable(puedeEditar, id, campo, valor, tipo) {
+  if (!puedeEditar) return valor || '';
+  return `<input class="edit" type="${tipo}" value="${valor || ''}" onchange="guardarCampo('${id}','${campo}',this.value)">`;
+}
+
+function editableEstatus(puedeEditar, id, valor) {
+  const opciones = ['Pendiente', 'En Proceso', 'Completado', 'Bloqueado'];
+  if (!puedeEditar) return valor;
+  let html = `<select onchange="guardarCampo('${id}','estatus',this.value)">`;
+  opciones.forEach(o => html += `<option value="${o}" ${o === valor ? 'selected' : ''}>${o}</option>`);
+  html += '</select>';
+  return html;
+}
+
+async function guardarCampo(id, campo, valor) {
+  const depto = (ACTIVIDADES_CACHE.find(a => a.id === id) || {}).depto;
+  const campos = {}; campos[campo] = valor;
+  await apiPost({ action: 'actualizar', id, depto, codigo: SESSION.codigo, campos });
+}
+
+render();
+</script>
+</body>
+</html>
