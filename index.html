@@ -75,11 +75,11 @@
   tr.completado, tr.en-proceso, tr.pendiente, tr.na { background: white; }
   tr.na { color: #999; }
   tr.vencida-alerta { background: #FFEE00 !important; }
-  .estado-pill { display:inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; color: white; }
-  .estado-pill.pendiente-pill { background: var(--rojo); }
-  .estado-pill.en-proceso-pill { background: var(--naranja); }
-  .estado-pill.completado-pill { background: var(--verde); }
-  .estado-pill.na-pill { background: var(--gris-na); }
+  .estado-pill { display:inline-block; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #000; }
+  .estado-pill.pendiente-pill { background: #FF0000; }
+  .estado-pill.en-proceso-pill { background: #FFA500; }
+  .estado-pill.completado-pill { background: #00CC00; }
+  .estado-pill.na-pill { background: #BEBEBE; }
   .alerta-vencida { color: #b36b00; margin-right: 4px; }
   .firma-rap { text-align: center; font-style: italic; font-family: 'Brush Script MT', cursive; color: #999; font-size: 12px; padding: 18px 0 10px; }
 
@@ -475,8 +475,8 @@ function dibujarTabla(actividades, puedeEditar) {
     const vencida = estaVencida_(a);
     html += '<tr class="' + (vencida ? 'vencida-alerta' : '') + '">' +
       '<td>' + (vencida ? '<span class="alerta-vencida">⚠️</span>' : '') + '<span class="subarea-tag">' + (a.subarea || '') + '</span><br>' + a.actividad + '</td>' +
-      '<td>' + editable(puedeEditar, a.id, 'responsable', a.responsable, 'text') + '</td>' +
-      '<td>' + editable(puedeEditar, a.id, 'co_responsable', a.co_responsable, 'text') + '</td>' +
+      '<td>' + editableBloqueado(puedeEditar, a, 'responsable') + '</td>' +
+      '<td>' + editableBloqueado(puedeEditar, a, 'co_responsable') + '</td>' +
       '<td>' + editableFecha(puedeEditar, a) + '</td>' +
       '<td>' + editableEstatus(puedeEditar, a.id, a.estatus) + '</td>' +
       '<td style="min-width:200px">' + bloqueComentarios(puedeEditar, a.id, a.comentarios) + '</td></tr>';
@@ -571,22 +571,48 @@ function editable(puedeEditar, id, campo, valor, tipo) {
   return '<input class="edit" type="' + tipo + '" value="' + (valor || '') + '" onchange="guardarCampo(\'' + id + '\',\'' + campo + '\',this.value)">';
 }
 
+const CODIGOS_CAMPOS_BLOQUEADOS = ['RA1614', 'DC9169'];
+
+function editableBloqueado(puedeEditar, a, campo) {
+  const valor = a[campo];
+  const yaTenia = valor && String(valor).trim() !== '';
+  const puedeReeditar = CODIGOS_CAMPOS_BLOQUEADOS.indexOf(SESSION.codigo) > -1;
+  if (!puedeEditar) return valor || '';
+  if (yaTenia && !puedeReeditar) return (valor || '') + ' 🔒';
+  return '<input class="edit" type="text" value="' + (valor || '') + '" onchange="guardarCampo(\'' + a.id + '\',\'' + campo + '\',this.value)">';
+}
+
 function editableFecha(puedeEditar, a) {
   const yaTenia = a.fecha_fin_plan && String(a.fecha_fin_plan).trim() !== '';
-  const puedeReeditar = ['RA1614', 'EQ1267', 'DC9169'].indexOf(SESSION.codigo) > -1;
+  const puedeReeditar = CODIGOS_CAMPOS_BLOQUEADOS.indexOf(SESSION.codigo) > -1;
   if (!puedeEditar) return formatearFecha(a.fecha_fin_plan);
   if (yaTenia && !puedeReeditar) return formatearFecha(a.fecha_fin_plan) + ' 🔒';
   return '<input class="edit" type="date" value="' + formatearFecha(a.fecha_fin_plan) + '" onchange="guardarCampo(\'' + a.id + '\',\'fecha_fin_plan\',this.value)">';
 }
 
+const COLOR_ESTATUS = {
+  'Pendiente': { bg: '#FF0000', color: '#000' },
+  'En Proceso': { bg: '#FFA500', color: '#000' },
+  'Completado': { bg: '#00CC00', color: '#000' },
+  'N/A': { bg: '#BEBEBE', color: '#000' }
+};
+
 function editableEstatus(puedeEditar, id, valor) {
   const opciones = ['Pendiente', 'En Proceso', 'Completado', 'N/A'];
   const pillClase = claseEstatus_(valor) + '-pill';
   if (!puedeEditar) return '<span class="estado-pill ' + pillClase + '">' + valor + '</span>';
-  let html = '<select onchange="guardarCampo(\'' + id + '\',\'estatus\',this.value)">';
+  const c = COLOR_ESTATUS[valor] || { bg: '#eee', color: '#000' };
+  let html = '<select style="background:' + c.bg + ';color:' + c.color + ';font-weight:bold;min-width:120px" ' +
+    'onchange="actualizarColorEstatusSelect(this); guardarCampo(\'' + id + '\',\'estatus\',this.value)">';
   opciones.forEach(o => html += '<option value="' + o + '" ' + (o === valor ? 'selected' : '') + '>' + o + '</option>');
   html += '</select>';
   return html;
+}
+
+function actualizarColorEstatusSelect(select) {
+  const c = COLOR_ESTATUS[select.value] || { bg: '#eee', color: '#000' };
+  select.style.background = c.bg;
+  select.style.color = c.color;
 }
 
 async function guardarCampo(id, campo, valor) {
