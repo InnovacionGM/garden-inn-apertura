@@ -42,6 +42,8 @@
   .totales-fila .item { text-align: center; }
   .totales-fila .item .etiqueta { font-size: 11px; color: #666; }
   .totales-fila .item .valor { font-size: 20px; font-weight: bold; }
+  .totales-fila .item.avance .valor { font-size: 42px; color: var(--verde); }
+  .totales-fila .item.avance .etiqueta { font-size: 13px; font-weight: bold; }
   .barra-progreso { background: #eee; border-radius: 10px; height: 18px; overflow: hidden; }
   .barra-progreso-relleno { background: var(--verde); height: 100%; text-align: right; color: white; font-size: 11px; padding-right: 6px; line-height: 18px; transition: width 0.3s; }
 
@@ -70,15 +72,16 @@
   table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
   th { background: var(--azul); color: white; padding: 10px; text-align: left; font-size: 13px; }
   td { padding: 8px 10px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: top; }
-  tr.completado { background: #F0F9EF; }
-  tr.en-proceso { background: #FDF3E3; }
-  tr.pendiente { background: #FDECEC; }
-  tr.na { background: #EFEFEF; color: #777; }
+  tr.completado, tr.en-proceso, tr.pendiente, tr.na { background: white; }
+  tr.na { color: #999; }
+  tr.vencida-alerta { background: #FFEE00 !important; }
   .estado-pill { display:inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; color: white; }
   .estado-pill.pendiente-pill { background: var(--rojo); }
   .estado-pill.en-proceso-pill { background: var(--naranja); }
   .estado-pill.completado-pill { background: var(--verde); }
   .estado-pill.na-pill { background: var(--gris-na); }
+  .alerta-vencida { color: #b36b00; margin-right: 4px; }
+  .firma-rap { text-align: center; font-style: italic; font-family: 'Brush Script MT', cursive; color: #999; font-size: 12px; padding: 18px 0 10px; }
 
   .comentario-resumen { font-size: 11px; color: #555; }
   .comentario-resumen .ver-todos { color: var(--azul); cursor: pointer; text-decoration: underline; font-size: 10px; }
@@ -114,7 +117,7 @@
   .encabezado-impresion { display: none; }
   .solo-impresion { display: none; }
   @media print {
-    header, .barra-fecha, .barra-acciones, .filtros, .chips, .volver, #toast, #spinner, .modal, .overlay { display: none !important; }
+    header, .barra-fecha, .barra-acciones, .filtros, .chips, .volver, #toast, #spinner, .modal, .overlay, .firma-rap { display: none !important; }
     .solo-pantalla { display: none !important; }
     .solo-impresion { display: block !important; }
     .encabezado-impresion { display: block !important; margin-bottom: 14px; }
@@ -234,14 +237,28 @@ function fechaHoyLegible_() {
 function vistaHeader() {
   const encabezadoPersona = (SESSION.puesto ? SESSION.puesto : SESSION.rol) + ' — ' + (SESSION.nombre || '');
   const puedeEditarFechaApertura = ['RA1614', 'DC9169'].indexOf(SESSION.codigo) > -1;
+  const esRob = SESSION.codigo === 'RA1614';
 
   return '<header><div><h1>🏨 Garden Inn Apertura — ' + encabezadoPersona + '</h1>' +
-    '<span id="docLinkSlot"></span></div>' +
+    '<span id="docLinkSlot"></span>' +
+    (esRob ? ' <button class="volver" style="margin-left:10px" onclick="verListaUsuarios()">👥 Usuarios</button>' : '') +
+    '</div>' +
     '<button class="volver" onclick="cerrarSesion()">Salir</button></header>' +
     '<div class="barra-fecha"><span>📅 Hoy: ' + fechaHoyLegible_() + '</span>' +
     '<span id="diasAperturaSlot">Días para la apertura: —</span>' +
     (puedeEditarFechaApertura ? '<span><input type="date" id="inputFechaApertura"><button onclick="guardarFechaApertura()">Actualizar fecha de apertura</button></span>' : '') +
     '</div>';
+}
+
+async function verListaUsuarios() {
+  const r = await apiGet({ action: 'usuarios', codigo: SESSION.codigo });
+  if (!r.ok) { mostrarToast(r.error || 'Error', true); return; }
+  let html = '<div class="modal" style="max-width:600px"><h3>Usuarios del sistema</h3><table style="font-size:12px"><thead><tr><th>Nombre</th><th>Puesto</th><th>Código</th><th>Áreas</th></tr></thead><tbody>';
+  r.usuarios.forEach(u => {
+    html += '<tr><td>' + u.nombre + '</td><td>' + u.puesto + '</td><td><b>' + u.codigo + '</b></td><td>' + (u.areas ? u.areas.join(', ') : 'Todas') + '</td></tr>';
+  });
+  html += '</tbody></table><div class="acciones"><button class="btn" onclick="cerrarModal()">Cerrar</button></div></div>';
+  abrirOverlay(html);
 }
 
 async function guardarFechaApertura() {
@@ -311,12 +328,13 @@ function renderDashboard_() {
     '<button class="btn secundario" onclick="window.print()">🖨️ Exportar PDF</button></div>';
 
   html += '<div class="totales-globales"><div class="totales-fila">' +
+    '<div class="item avance"><div class="etiqueta">AVANCE GENERAL</div><div class="valor">' + pctGlobal + '%</div></div>' +
     '<div class="item"><div class="etiqueta">TOTAL</div><div class="valor" style="color:var(--azul)">' + tot.total + '</div></div>' +
     '<div class="item"><div class="etiqueta">PENDIENTES</div><div class="valor" style="color:var(--rojo)">' + tot.pendiente + '</div></div>' +
     '<div class="item"><div class="etiqueta">EN PROCESO</div><div class="valor" style="color:var(--naranja)">' + tot.en_proceso + '</div></div>' +
     '<div class="item"><div class="etiqueta">COMPLETADOS</div><div class="valor" style="color:var(--verde)">' + tot.completado + '</div></div>' +
     '<div class="item"><div class="etiqueta">N/A</div><div class="valor" style="color:var(--gris-na)">' + tot.na + '</div></div>' +
-    '</div><div class="barra-progreso"><div class="barra-progreso-relleno" style="width:' + pctGlobal + '%">' + pctGlobal + '%</div></div></div>';
+    '</div><div class="barra-progreso"><div class="barra-progreso-relleno" style="width:' + pctGlobal + '%"></div></div></div>';
 
   html += '<div class="tarjetas">';
   Object.keys(r.porDepto).sort().forEach(depto => {
@@ -443,22 +461,33 @@ function claseEstatus_(estatus) {
   return 'pendiente';
 }
 
+function estaVencida_(a) {
+  if (!a.fecha_fin_plan || a.estatus === 'Completado' || a.estatus === 'N/A') return false;
+  const fecha = new Date(a.fecha_fin_plan);
+  if (isNaN(fecha)) return false;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return fecha < hoy;
+}
+
 function dibujarTabla(actividades, puedeEditar) {
-  let html = '<table><thead><tr><th>Subárea / Actividad</th><th>Responsable</th><th>Fecha compromiso</th><th>Estatus</th><th>Comentarios</th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th>Subárea / Actividad</th><th>Responsable</th><th>Co-responsable</th><th>Fecha compromiso</th><th>Estatus</th><th>Comentarios</th></tr></thead><tbody>';
   actividades.forEach(a => {
-    html += '<tr class="' + claseEstatus_(a.estatus) + '">' +
-      '<td><span class="subarea-tag">' + (a.subarea || '') + '</span><br>' + a.actividad + '</td>' +
+    const vencida = estaVencida_(a);
+    html += '<tr class="' + (vencida ? 'vencida-alerta' : '') + '">' +
+      '<td>' + (vencida ? '<span class="alerta-vencida">⚠️</span>' : '') + '<span class="subarea-tag">' + (a.subarea || '') + '</span><br>' + a.actividad + '</td>' +
       '<td>' + editable(puedeEditar, a.id, 'responsable', a.responsable, 'text') + '</td>' +
+      '<td>' + editable(puedeEditar, a.id, 'co_responsable', a.co_responsable, 'text') + '</td>' +
       '<td>' + editableFecha(puedeEditar, a) + '</td>' +
       '<td>' + editableEstatus(puedeEditar, a.id, a.estatus) + '</td>' +
       '<td style="min-width:200px">' + bloqueComentarios(puedeEditar, a.id, a.comentarios) + '</td></tr>';
   });
   html += '</tbody></table>';
 
-  let htmlImp = '<table><thead><tr><th>Subárea / Actividad</th><th>Responsable</th><th>Fecha compromiso</th><th>Estatus</th><th>Últ. comentario</th></tr></thead><tbody>';
+  let htmlImp = '<table><thead><tr><th>Subárea / Actividad</th><th>Responsable</th><th>Co-resp.</th><th>Fecha compromiso</th><th>Estatus</th><th>Últ. comentario</th></tr></thead><tbody>';
   actividades.forEach(a => {
     const ultComentario = (a.comentarios && a.comentarios.length) ? a.comentarios[a.comentarios.length - 1].texto : '';
-    htmlImp += '<tr><td>' + (a.subarea || '') + ' — ' + a.actividad + '</td><td>' + (a.responsable || '') + '</td><td>' + formatearFecha(a.fecha_fin_plan) + '</td><td>' + a.estatus + '</td><td>' + ultComentario + '</td></tr>';
+    const marca = estaVencida_(a) ? '⚠️ ' : '';
+    htmlImp += '<tr><td>' + marca + (a.subarea || '') + ' — ' + a.actividad + '</td><td>' + (a.responsable || '') + '</td><td>' + (a.co_responsable || '') + '</td><td>' + formatearFecha(a.fecha_fin_plan) + '</td><td>' + a.estatus + '</td><td>' + ultComentario + '</td></tr>';
   });
   htmlImp += '</tbody></table>';
 
@@ -590,6 +619,7 @@ function abrirModalNuevo(deptoFijo) {
     '<label>Descripción de la actividad</label><textarea id="nActividad" rows="3" placeholder="¿Qué hay que hacer?"></textarea>' +
     '<label>Fecha de compromiso</label><input type="date" id="nFecha">' +
     '<label>Responsable</label><input type="text" id="nResponsable" placeholder="Nombre del responsable">' +
+    '<label>Co-responsable (opcional)</label><input type="text" id="nCoResponsable" placeholder="Nombre del co-responsable">' +
     '<div class="acciones"><button class="btn secundario" onclick="cerrarModal()">Cancelar</button>' +
     '<button class="btn" onclick="guardarNuevoPendiente()">Guardar</button></div></div>';
   abrirOverlay(html);
@@ -616,10 +646,11 @@ async function guardarNuevoPendiente() {
   const actividad = document.getElementById('nActividad').value.trim();
   const fecha_fin_plan = document.getElementById('nFecha').value;
   const responsable = document.getElementById('nResponsable').value.trim();
+  const co_responsable = document.getElementById('nCoResponsable').value.trim();
 
   if (!actividad) { mostrarToast('Falta la descripción de la actividad', true); return; }
 
-  const r = await apiPost({ action: 'crear', depto, subarea, actividad, fecha_fin_plan, responsable, codigo: SESSION.codigo });
+  const r = await apiPost({ action: 'crear', depto, subarea, actividad, fecha_fin_plan, responsable, co_responsable, codigo: SESSION.codigo });
   if (r.ok) {
     mostrarToast('✓ Pendiente creado');
     cerrarModal();
@@ -645,6 +676,8 @@ function cerrarModal() {
 
 render();
 </script>
+
+<div class="firma-rap">Diseñado por RAP</div>
 
 </body>
 </html>
