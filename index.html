@@ -9,6 +9,8 @@
     --azul: #203864;
     --rojo: #8B0101;
     --verde: #1B5E19;
+    --naranja: #C77900;
+    --gris-na: #6b6b6b;
     --amarillo: #FFF2CD;
     --gris: #f4f5f7;
   }
@@ -41,7 +43,19 @@
   th { background: var(--azul); color: white; padding: 10px; text-align: left; font-size: 13px; position: sticky; top: 0; }
   td { padding: 8px 10px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: top; }
   tr.completado { background: #F0F9EF; }
-  tr.bloqueado { background: #FDECEC; }
+  tr.en-proceso { background: #FDF3E3; }
+  tr.pendiente { background: #FDECEC; }
+  tr.na { background: #EFEFEF; color: #777; }
+  .estado-pill { display:inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; color: white; }
+  .estado-pill.pendiente-pill { background: var(--rojo); }
+  .estado-pill.en-proceso-pill { background: var(--naranja); }
+  .estado-pill.completado-pill { background: var(--verde); }
+  .estado-pill.na-pill { background: var(--gris-na); }
+  .comentarios-lista { max-height: 110px; overflow-y: auto; font-size: 11px; margin-bottom: 6px; }
+  .comentario-item { padding: 3px 0; border-bottom: 1px dashed #ddd; }
+  .comentario-item b { color: var(--azul); }
+  .comentario-fecha { color: #999; font-size: 10px; }
+  .doc-link { color: white; text-decoration: underline; font-size: 13px; margin-left: 14px; }
   select, input.edit, textarea.edit { width: 100%; padding: 4px; font-size: 12px; border: 1px solid #ddd; border-radius: 4px; }
   .filtros { margin-bottom: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
   .filtros select, .filtros input { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
@@ -61,6 +75,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyRs1CgsCUZ6Uwt40CeKjsA
 
 let SESSION = JSON.parse(localStorage.getItem('gia_session') || 'null');
 let ACTIVIDADES_CACHE = [];
+let DOC_FOLDER_URL = '';
 
 function guardarSesion(s) {
   SESSION = s;
@@ -90,7 +105,17 @@ function render() {
     return;
   }
   app.innerHTML = vistaHeader() + '<div class="contenedor" id="main"><div class="cargando">Cargando...</div></div>';
+  cargarConfig();
   cargarDashboard();
+}
+
+async function cargarConfig() {
+  const r = await apiGet({ action: 'config' });
+  if (r.ok && r.docFolderUrl) {
+    DOC_FOLDER_URL = r.docFolderUrl;
+    const el = document.getElementById('docLinkSlot');
+    if (el) el.innerHTML = `<a class="doc-link" href="${DOC_FOLDER_URL}" target="_blank">📁 Documentación</a>`;
+  }
 }
 
 function vistaLogin() {
@@ -118,11 +143,14 @@ async function hacerLogin() {
 function vistaHeader() {
   let titulo;
   if (SESSION.rol === 'master') titulo = 'Master — ' + (SESSION.nombre || '');
-  else if (SESSION.rol === 'jefe') titulo = 'Jefe (solo lectura) — ' + (SESSION.nombre || '');
+  else if (SESSION.rol === 'jefe') titulo = 'Jefe — ' + (SESSION.nombre || '');
   else titulo = 'Corporativo — ' + (SESSION.nombre || '') + ' (' + (SESSION.areas || []).join(', ') + ')';
   return `
     <header>
-      <h1>🏨 Garden Inn Apertura — ${titulo}</h1>
+      <div>
+        <h1 style="display:inline">🏨 Garden Inn Apertura — ${titulo}</h1>
+        <span id="docLinkSlot"></span>
+      </div>
       <button class="volver" onclick="cerrarSesion()">Salir</button>
     </header>`;
 }
@@ -169,7 +197,7 @@ async function cargarActividades(depto, esDrillDown) {
         <option value="Pendiente">Pendiente</option>
         <option value="En Proceso">En Proceso</option>
         <option value="Completado">Completado</option>
-        <option value="Bloqueado">Bloqueado</option>
+        <option value="N/A">N/A</option>
       </select>
       <input type="text" id="filtroTexto" placeholder="Buscar actividad..." oninput="aplicarFiltro()">
     </div>
@@ -187,23 +215,66 @@ function aplicarFiltro() {
   dibujarTabla(filtradas, SESSION.rol !== 'jefe');
 }
 
+function claseEstatus_(estatus) {
+  if (estatus === 'Completado') return 'completado';
+  if (estatus === 'En Proceso') return 'en-proceso';
+  if (estatus === 'N/A') return 'na';
+  return 'pendiente';
+}
+
 function dibujarTabla(actividades, puedeEditar) {
   let html = `<table><thead><tr>
     <th>Subárea / Actividad</th><th>Responsable</th><th>Fecha fin plan</th><th>Estatus</th><th>Comentarios</th>
   </tr></thead><tbody>`;
 
   actividades.forEach(a => {
-    const claseFila = a.estatus === 'Completado' ? 'completado' : (a.estatus === 'Bloqueado' ? 'bloqueado' : '');
+    const claseFila = claseEstatus_(a.estatus);
     html += `<tr class="${claseFila}">
       <td><span class="subarea-tag">${a.subarea || ''}</span><br>${a.actividad}</td>
       <td>${editable(puedeEditar, a.id, 'responsable', a.responsable, 'text')}</td>
       <td>${editable(puedeEditar, a.id, 'fecha_fin_plan', formatearFecha(a.fecha_fin_plan), 'date')}</td>
       <td>${editableEstatus(puedeEditar, a.id, a.estatus)}</td>
-      <td>${editable(puedeEditar, a.id, 'comentarios', a.comentarios, 'text')}</td>
+      <td style="min-width:220px">${bloqueComentarios(puedeEditar, a.id, a.comentarios)}</td>
     </tr>`;
   });
   html += '</tbody></table>';
   document.getElementById('tablaContenedor').innerHTML = html;
+}
+
+function bloqueComentarios(puedeEditar, id, comentarios) {
+  const lista = (comentarios || []);
+  let html = '<div class="comentarios-lista">';
+  if (lista.length === 0) {
+    html += '<span style="color:#aaa">Sin comentarios</span>';
+  } else {
+    lista.forEach(c => {
+      const fecha = c.fecha ? new Date(c.fecha).toLocaleString('es-DO', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+      html += `<div class="comentario-item"><b>${c.autor}</b> <span class="comentario-fecha">${fecha}</span><br>${c.texto}</div>`;
+    });
+  }
+  html += '</div>';
+  if (puedeEditar) {
+    html += `<div style="display:flex; gap:4px;">
+      <input type="text" id="nuevoComentario_${id}" placeholder="Agregar comentario..." style="flex:1; padding:4px; font-size:11px; border:1px solid #ddd; border-radius:4px;">
+      <button onclick="agregarComentario('${id}')" style="background:var(--azul); color:white; border:none; border-radius:4px; padding:4px 8px; font-size:11px; cursor:pointer;">+</button>
+    </div>`;
+  }
+  return html;
+}
+
+async function agregarComentario(id) {
+  const input = document.getElementById('nuevoComentario_' + id);
+  const texto = input.value.trim();
+  if (!texto) return;
+  const depto = (ACTIVIDADES_CACHE.find(a => a.id === id) || {}).depto;
+  const r = await apiPost({ action: 'comentar', id, depto, codigo: SESSION.codigo, texto });
+  if (r.ok) {
+    const act = ACTIVIDADES_CACHE.find(a => a.id === id);
+    if (act) act.comentarios = r.comentarios;
+    input.value = '';
+    // Redibuja solo esa celda de comentarios
+    aplicarFiltro();
+  }
 }
 
 function formatearFecha(f) {
@@ -219,9 +290,10 @@ function editable(puedeEditar, id, campo, valor, tipo) {
 }
 
 function editableEstatus(puedeEditar, id, valor) {
-  const opciones = ['Pendiente', 'En Proceso', 'Completado', 'Bloqueado'];
-  if (!puedeEditar) return valor;
-  let html = `<select onchange="guardarCampo('${id}','estatus',this.value)">`;
+  const opciones = ['Pendiente', 'En Proceso', 'Completado', 'N/A'];
+  const pillClase = claseEstatus_(valor) + '-pill';
+  if (!puedeEditar) return `<span class="estado-pill ${pillClase}">${valor}</span>`;
+  let html = `<select class="estado-select" onchange="guardarCampo('${id}','estatus',this.value)">`;
   opciones.forEach(o => html += `<option value="${o}" ${o === valor ? 'selected' : ''}>${o}</option>`);
   html += '</select>';
   return html;
@@ -235,5 +307,6 @@ async function guardarCampo(id, campo, valor) {
 
 render();
 </script>
+
 </body>
 </html>
