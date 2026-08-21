@@ -11,7 +11,6 @@
     --verde: #1B5E19;
     --naranja: #C77900;
     --gris-na: #6b6b6b;
-    --amarillo: #FFF2CD;
     --gris: #f4f5f7;
   }
   * { box-sizing: border-box; }
@@ -23,20 +22,29 @@
   .barra-fecha button { background: var(--naranja); color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
   .contenedor { max-width: 1150px; margin: 24px auto; padding: 0 16px; }
 
-  /* LOGIN */
   .login-box { max-width: 360px; margin: 80px auto; background: white; padding: 32px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
   .login-box input { width: 100%; padding: 12px; font-size: 16px; margin: 12px 0; border: 1px solid #ccc; border-radius: 6px; }
   .login-box button { width: 100%; padding: 12px; background: var(--azul); color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
   .login-box button:hover { background: #16294a; }
   .error { color: var(--rojo); font-size: 13px; margin-top: 8px; }
 
-  /* BOTONES GENERALES */
   .btn { background: var(--azul); color: white; border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px; cursor: pointer; }
   .btn:hover { background: #16294a; }
   .btn.secundario { background: white; color: var(--azul); border: 1px solid var(--azul); }
+  .btn.refrescar { background: #2f7a3d; }
   .barra-acciones { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+  .barra-acciones .izq { display: flex; gap: 8px; flex-wrap: wrap; }
 
-  /* DASHBOARD */
+  /* TOTALES GLOBALES */
+  .totales-globales { background: white; border-radius: 8px; padding: 16px; margin-bottom: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .totales-fila { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .totales-fila .num-total { font-size: 22px; font-weight: bold; color: var(--azul); }
+  .totales-fila .item { text-align: center; }
+  .totales-fila .item .etiqueta { font-size: 11px; color: #666; }
+  .totales-fila .item .valor { font-size: 20px; font-weight: bold; }
+  .barra-progreso { background: #eee; border-radius: 10px; height: 18px; overflow: hidden; }
+  .barra-progreso-relleno { background: var(--verde); height: 100%; text-align: right; color: white; font-size: 11px; padding-right: 6px; line-height: 18px; transition: width 0.3s; }
+
   .tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-bottom: 24px; }
   .tarjeta { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-left: 5px solid #ccc; cursor: pointer; }
   .tarjeta.verde { border-left-color: var(--verde); }
@@ -45,14 +53,12 @@
   .tarjeta h3 { margin: 0 0 6px; font-size: 14px; color: var(--azul); }
   .tarjeta .pct { font-size: 26px; font-weight: bold; }
   .tarjeta .desglose { font-size: 11px; color: #555; margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
-  .tarjeta .desglose span { white-space: nowrap; }
 
-  /* SUBAREAS: chips + tarjetas resumen */
   .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
   .chip { padding: 6px 12px; border-radius: 16px; border: 1px solid var(--azul); color: var(--azul); background: white; font-size: 12px; cursor: pointer; }
   .chip.activo { background: var(--azul); color: white; }
   .subarea-resumen { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-bottom: 18px; }
-  .subarea-card { background: white; border-radius: 8px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
+  .subarea-card { background: white; border-radius: 8px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); cursor: pointer; }
   .subarea-card h4 { margin: 0 0 4px; font-size: 13px; color: var(--azul); }
   .subarea-card .pct-chico { font-size: 20px; font-weight: bold; float: right; }
   .subarea-card .conteos { font-size: 11px; color: #555; clear: both; }
@@ -61,7 +67,6 @@
 
   .encabezado-vista { font-size: 15px; color: var(--azul); margin-bottom: 10px; font-weight: bold; }
 
-  /* TABLA ACTIVIDADES */
   table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
   th { background: var(--azul); color: white; padding: 10px; text-align: left; font-size: 13px; }
   td { padding: 8px 10px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: top; }
@@ -75,12 +80,12 @@
   .estado-pill.completado-pill { background: var(--verde); }
   .estado-pill.na-pill { background: var(--gris-na); }
 
-  /* COMENTARIOS */
   .comentario-resumen { font-size: 11px; color: #555; }
   .comentario-resumen .ver-todos { color: var(--azul); cursor: pointer; text-decoration: underline; font-size: 10px; }
-  .comentario-item { padding: 3px 0; border-bottom: 1px dashed #ddd; font-size: 12px; }
+  .comentario-item { padding: 3px 0; border-bottom: 1px dashed #ddd; font-size: 12px; display:flex; justify-content:space-between; gap:6px; }
   .comentario-item b { color: var(--azul); }
   .comentario-fecha { color: #999; font-size: 10px; }
+  .btn-borrar-comentario { background: none; border: none; color: var(--rojo); cursor: pointer; font-size: 13px; }
 
   .doc-link { color: white; text-decoration: underline; font-size: 13px; margin-left: 14px; }
   select, input.edit { width: 100%; padding: 4px; font-size: 12px; border: 1px solid #ddd; border-radius: 4px; }
@@ -90,7 +95,6 @@
   .subarea-tag { font-size: 11px; color: var(--azul); font-weight: bold; }
   .cargando { text-align: center; padding: 40px; color: #999; }
 
-  /* MODAL */
   .overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index: 1000; }
   .modal { background: white; border-radius: 10px; padding: 24px; max-width: 480px; width: 90%; max-height: 80vh; overflow-y: auto; }
   .modal h3 { margin-top: 0; color: var(--azul); }
@@ -98,24 +102,32 @@
   .modal input, .modal select, .modal textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
   .modal .acciones { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
-  /* TOAST autoguardado */
   #toast { position: fixed; bottom: 20px; right: 20px; background: var(--verde); color: white; padding: 10px 18px; border-radius: 6px; font-size: 13px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
   #toast.mostrar { opacity: 1; }
   #toast.error { background: var(--rojo); }
 
-  /* IMPRESIÓN */
+  #spinner { position: fixed; top: 16px; right: 16px; z-index: 3000; display:none; align-items:center; gap:8px; background:white; padding:8px 14px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); font-size: 12px; color: var(--azul); }
+  #spinner.activo { display:flex; }
+  .rueda { width:16px; height:16px; border:3px solid #ddd; border-top-color: var(--azul); border-radius:50%; animation: girar 0.7s linear infinite; }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  .encabezado-impresion { display: none; }
   .solo-impresion { display: none; }
   @media print {
-    header, .barra-fecha, .barra-acciones, .filtros, .chips, .volver, #toast, .modal, .overlay { display: none !important; }
+    header, .barra-fecha, .barra-acciones, .filtros, .chips, .volver, #toast, #spinner, .modal, .overlay { display: none !important; }
     .solo-pantalla { display: none !important; }
     .solo-impresion { display: block !important; }
+    .encabezado-impresion { display: block !important; margin-bottom: 14px; }
+    .encabezado-impresion .titulo-doc { font-size: 20px; font-weight: bold; color: #000; }
+    .encabezado-impresion .contexto-doc { font-size: 12px; color: #333; margin-top: 2px; }
+    .encabezado-impresion .fecha-doc { font-size: 10px; color: #666; margin-top: 2px; }
     @page { size: letter portrait; margin: 12mm; }
     body { background: white; font-size: 10px; }
     .contenedor { max-width: 100%; margin: 0; padding: 0; }
     table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #999; padding: 4px 6px; font-size: 9px; }
     tr { page-break-inside: avoid; }
-    .tarjetas, .subarea-resumen { page-break-inside: avoid; }
+    .tarjetas, .subarea-resumen, .totales-globales { page-break-inside: avoid; }
   }
 </style>
 </head>
@@ -123,34 +135,46 @@
 
 <div id="app"></div>
 <div id="toast"></div>
+<div id="spinner"><div class="rueda"></div><span>Procesando...</span></div>
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyRs1CgsCUZ6Uwt40CeKjsAKwYeHA5LFw6552mPndpCVXGXx7-xc_O17HqSBPbnuwZy/exec';
 
 let SESSION = JSON.parse(localStorage.getItem('gia_session') || 'null');
 let ACTIVIDADES_CACHE = [];
-let PORSUBAREA_CACHE = {};
+let PORSUBAREA_GLOBAL = {}; // { depto: { subarea: {...} } } de TODOS los deptos visibles (para sugerir subáreas al crear)
 let DOC_FOLDER_URL = '';
 let DEPTO_ACTUAL = null;
 let SUBAREA_ACTIVA = '';
 let DIAS_APERTURA = null;
 let FECHA_APERTURA_STR = '';
+let VISTA_ACTUAL = 'dashboard'; // 'dashboard' | 'depto'
+let PENDIENTES_CARGAS = 0;
 
 function guardarSesion(s) { SESSION = s; localStorage.setItem('gia_session', JSON.stringify(s)); }
 function cerrarSesion() { localStorage.removeItem('gia_session'); SESSION = null; render(); }
 
+function mostrarSpinner() { PENDIENTES_CARGAS++; document.getElementById('spinner').classList.add('activo'); }
+function ocultarSpinner() { PENDIENTES_CARGAS = Math.max(0, PENDIENTES_CARGAS - 1); if (PENDIENTES_CARGAS === 0) document.getElementById('spinner').classList.remove('activo'); }
+
 async function apiGet(params) {
-  const url = API_URL + '?' + new URLSearchParams(params).toString();
-  const res = await fetch(url);
-  return res.json();
+  mostrarSpinner();
+  try {
+    const url = API_URL + '?' + new URLSearchParams(params).toString();
+    const res = await fetch(url);
+    return await res.json();
+  } catch (e) {
+    return { error: 'No se pudo conectar: ' + e.message };
+  } finally { ocultarSpinner(); }
 }
 async function apiPost(body) {
+  mostrarSpinner();
   try {
     const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(body) });
     return await res.json();
   } catch (e) {
     return { error: 'No se pudo conectar con el servidor: ' + e.message };
-  }
+  } finally { ocultarSpinner(); }
 }
 
 function mostrarToast(msg, esError) {
@@ -170,7 +194,7 @@ function render() {
   }
   app.innerHTML = vistaHeader() + '<div class="contenedor" id="main"><div class="cargando">Cargando...</div></div>';
   cargarConfig();
-  cargarDashboard();
+  irADashboard();
 }
 
 async function cargarConfig() {
@@ -178,26 +202,23 @@ async function cargarConfig() {
   if (r.ok && r.docFolderUrl) {
     DOC_FOLDER_URL = r.docFolderUrl;
     const el = document.getElementById('docLinkSlot');
-    if (el) el.innerHTML = `<a class="doc-link" href="${DOC_FOLDER_URL}" target="_blank">📁 Documentación</a>`;
+    if (el) el.innerHTML = '<a class="doc-link" href="' + DOC_FOLDER_URL + '" target="_blank">📁 Documentación</a>';
   }
 }
 
 function vistaLogin() {
-  return `
-    <div class="login-box">
-      <h2>Garden Inn Apertura</h2>
-      <p style="color:#666;font-size:13px">Ingresa tu código de acceso</p>
-      <input type="password" id="codigo" placeholder="Código">
-      <button id="btnLogin">Entrar</button>
-      <div class="error" id="loginError"></div>
-    </div>`;
+  return '<div class="login-box"><h2>Garden Inn Apertura</h2>' +
+    '<p style="color:#666;font-size:13px">Ingresa tu código de acceso</p>' +
+    '<input type="password" id="codigo" placeholder="Código">' +
+    '<button id="btnLogin">Entrar</button>' +
+    '<div class="error" id="loginError"></div></div>';
 }
 
 async function hacerLogin() {
   const codigo = document.getElementById('codigo').value.trim();
   const r = await apiGet({ action: 'login', codigo });
   if (r.ok) {
-    guardarSesion({ codigo, rol: r.rol, areas: r.areas, nombre: r.nombre, puedeEditar: r.puedeEditar });
+    guardarSesion({ codigo, rol: r.rol, areas: r.areas, nombre: r.nombre, puesto: r.puesto, puedeEditar: r.puedeEditar });
     render();
   } else {
     document.getElementById('loginError').innerText = r.error || 'Código inválido';
@@ -210,160 +231,196 @@ function fechaHoyLegible_() {
 }
 
 function vistaHeader() {
-  let titulo;
-  if (SESSION.rol === 'master') titulo = 'Master — ' + (SESSION.nombre || '');
-  else if (SESSION.rol === 'jefe') titulo = 'Jefe — ' + (SESSION.nombre || '');
-  else if (SESSION.rol === 'lector') titulo = 'Solo lectura — ' + (SESSION.nombre || '');
-  else titulo = 'Corporativo — ' + (SESSION.nombre || '') + ' (' + (SESSION.areas || []).join(', ') + ')';
-
+  const encabezadoPersona = (SESSION.puesto ? SESSION.puesto : SESSION.rol) + ' — ' + (SESSION.nombre || '');
   const puedeEditarFechaApertura = ['RA1614', 'DC9169'].indexOf(SESSION.codigo) > -1;
 
-  return `
-    <header>
-      <div>
-        <h1>🏨 Garden Inn Apertura — ${titulo}</h1>
-        <span id="docLinkSlot"></span>
-      </div>
-      <button class="volver" onclick="cerrarSesion()">Salir</button>
-    </header>
-    <div class="barra-fecha">
-      <span>📅 Hoy: ${fechaHoyLegible_()}</span>
-      <span id="diasAperturaSlot">Días para la apertura: —</span>
-      ${puedeEditarFechaApertura ? `
-        <span>
-          <input type="date" id="inputFechaApertura">
-          <button onclick="guardarFechaApertura()">Actualizar fecha de apertura</button>
-        </span>` : ''}
-    </div>`;
+  return '<header><div><h1>🏨 Garden Inn Apertura — ' + encabezadoPersona + '</h1>' +
+    '<span id="docLinkSlot"></span></div>' +
+    '<button class="volver" onclick="cerrarSesion()">Salir</button></header>' +
+    '<div class="barra-fecha"><span>📅 Hoy: ' + fechaHoyLegible_() + '</span>' +
+    '<span id="diasAperturaSlot">Días para la apertura: —</span>' +
+    (puedeEditarFechaApertura ? '<span><input type="date" id="inputFechaApertura"><button onclick="guardarFechaApertura()">Actualizar fecha de apertura</button></span>' : '') +
+    '</div>';
 }
 
 async function guardarFechaApertura() {
   const fecha = document.getElementById('inputFechaApertura').value;
   if (!fecha) return;
   const r = await apiPost({ action: 'setFechaApertura', codigo: SESSION.codigo, fecha });
-  if (r.ok) {
-    mostrarToast('Fecha de apertura actualizada');
-    cargarDashboard();
-  } else {
-    mostrarToast(r.error || 'Error al actualizar', true);
-  }
+  if (r.ok) { mostrarToast('Fecha de apertura actualizada'); irADashboard(); }
+  else { mostrarToast(r.error || 'Error al actualizar', true); }
 }
 
 function actualizarBarraDias_() {
   const slot = document.getElementById('diasAperturaSlot');
-  if (slot && DIAS_APERTURA !== null) {
-    slot.textContent = `Días para la apertura: ${DIAS_APERTURA} (${FECHA_APERTURA_STR})`;
-  }
+  if (slot && DIAS_APERTURA !== null) slot.textContent = 'Días para la apertura: ' + DIAS_APERTURA + ' (' + FECHA_APERTURA_STR + ')';
   const inputFecha = document.getElementById('inputFechaApertura');
   if (inputFecha && FECHA_APERTURA_STR) inputFecha.value = FECHA_APERTURA_STR;
 }
 
+function encabezadoImpresion_(contexto) {
+  const ahora = new Date().toLocaleString('es-DO');
+  return '<div class="encabezado-impresion">' +
+    '<div class="titulo-doc">Garden Inn Apertura</div>' +
+    '<div class="contexto-doc">' + contexto + '</div>' +
+    '<div class="fecha-doc">Generado: ' + ahora + '</div></div>';
+}
+
 // ===== DASHBOARD =====
+
+let DASHBOARD_CACHE = null;
+
+async function irADashboard() {
+  VISTA_ACTUAL = 'dashboard';
+  DEPTO_ACTUAL = null;
+  await cargarDashboard();
+}
 
 async function cargarDashboard() {
   const r = await apiGet({ action: 'dashboard', codigo: SESSION.codigo });
   const main = document.getElementById('main');
   if (!r.ok) { main.innerHTML = '<p>Error: ' + r.error + '</p>'; return; }
 
+  DASHBOARD_CACHE = r;
+  PORSUBAREA_GLOBAL = r.porSubarea || {};
   DIAS_APERTURA = r.diasParaApertura;
   FECHA_APERTURA_STR = r.fechaApertura;
   actualizarBarraDias_();
+  renderDashboard_();
+}
 
+function renderDashboard_() {
+  const r = DASHBOARD_CACHE;
+  const main = document.getElementById('main');
   const puedeCrear = SESSION.puedeEditar;
 
-  let html = `<div class="barra-acciones">
-      <span></span>
-      ${puedeCrear ? '<button class="btn" onclick="abrirModalNuevo()">+ Nuevo pendiente</button>' : ''}
-      <button class="btn secundario" onclick="window.print()">🖨️ Exportar PDF</button>
-    </div>
-    <div class="tarjetas">`;
+  // Totales globales
+  const tot = { total: 0, pendiente: 0, en_proceso: 0, completado: 0, na: 0 };
+  Object.values(r.porDepto).forEach(d => {
+    tot.total += d.total; tot.pendiente += d.pendiente; tot.en_proceso += d.en_proceso; tot.completado += d.completado; tot.na += d.na;
+  });
+  const aplicables = tot.total - tot.na;
+  const pctGlobal = aplicables > 0 ? Math.round((tot.completado / aplicables) * 100) : 0;
+
+  let html = encabezadoImpresion_('Estado de pendientes por área');
+
+  html += '<div class="barra-acciones"><div class="izq">' +
+    (puedeCrear ? '<button class="btn" onclick="abrirModalNuevo()">+ Nuevo pendiente</button>' : '') +
+    '<button class="btn refrescar" onclick="cargarDashboard()">🔄 Actualizar</button></div>' +
+    '<button class="btn secundario" onclick="window.print()">🖨️ Exportar PDF</button></div>';
+
+  html += '<div class="totales-globales"><div class="totales-fila">' +
+    '<div class="item"><div class="etiqueta">TOTAL</div><div class="valor" style="color:var(--azul)">' + tot.total + '</div></div>' +
+    '<div class="item"><div class="etiqueta">PENDIENTES</div><div class="valor" style="color:var(--rojo)">' + tot.pendiente + '</div></div>' +
+    '<div class="item"><div class="etiqueta">EN PROCESO</div><div class="valor" style="color:var(--naranja)">' + tot.en_proceso + '</div></div>' +
+    '<div class="item"><div class="etiqueta">COMPLETADOS</div><div class="valor" style="color:var(--verde)">' + tot.completado + '</div></div>' +
+    '<div class="item"><div class="etiqueta">N/A</div><div class="valor" style="color:var(--gris-na)">' + tot.na + '</div></div>' +
+    '</div><div class="barra-progreso"><div class="barra-progreso-relleno" style="width:' + pctGlobal + '%">' + pctGlobal + '%</div></div></div>';
+
+  html += '<div class="tarjetas">';
   Object.keys(r.porDepto).sort().forEach(depto => {
     const d = r.porDepto[depto];
-    html += `
-      <div class="tarjeta ${d.semaforo}" onclick="verDetalleDepto('${depto}')">
-        <h3>${depto}</h3>
-        <div class="pct">${d.porcentaje}%</div>
-        <div class="desglose">
-          <span style="color:var(--rojo)">Pend: ${d.pendiente}</span>
-          <span style="color:var(--naranja)">Proc: ${d.en_proceso}</span>
-          <span style="color:var(--verde)">Comp: ${d.completado}</span>
-          <span style="color:var(--gris-na)">N/A: ${d.na}</span>
-          ${d.vencidas > 0 ? '<span style="color:var(--rojo)">⚠️ ' + d.vencidas + ' vencidas</span>' : ''}
-        </div>
-      </div>`;
+    html += '<div class="tarjeta ' + d.semaforo + '" onclick="verDetalleDepto(\'' + depto + '\')">' +
+      '<h3>' + depto + '</h3><div class="pct">' + d.porcentaje + '%</div>' +
+      '<div class="desglose">' +
+      '<span style="color:var(--rojo)">Pend: ' + d.pendiente + '</span>' +
+      '<span style="color:var(--naranja)">Proc: ' + d.en_proceso + '</span>' +
+      '<span style="color:var(--verde)">Comp: ' + d.completado + '</span>' +
+      '<span style="color:var(--gris-na)">N/A: ' + d.na + '</span>' +
+      (d.vencidas > 0 ? '<span style="color:var(--rojo)">⚠️ ' + d.vencidas + ' vencidas</span>' : '') +
+      '</div></div>';
   });
-  html += '</div><div id="detalleDepto"></div>';
+  html += '</div>';
   main.innerHTML = html;
 }
+
+// ===== DETALLE DE DEPARTAMENTO =====
 
 async function verDetalleDepto(depto) {
   DEPTO_ACTUAL = depto;
   SUBAREA_ACTIVA = '';
-  await cargarDetalleDepto();
+  VISTA_ACTUAL = 'depto';
+  await fetchDetalleDepto();
 }
 
-async function cargarDetalleDepto() {
+async function fetchDetalleDepto() {
   const [rDash, rList] = await Promise.all([
     apiGet({ action: 'dashboard', codigo: SESSION.codigo }),
     apiGet({ action: 'listar', depto: DEPTO_ACTUAL, codigo: SESSION.codigo })
   ]);
-  const target = document.getElementById('detalleDepto');
-  if (!rList.ok) { target.innerHTML = '<p>Error: ' + rList.error + '</p>'; return; }
-
+  if (!rList.ok) { document.getElementById('main').innerHTML = '<p>Error: ' + rList.error + '</p>'; return; }
   ACTIVIDADES_CACHE = rList.actividades;
-  PORSUBAREA_CACHE = (rDash.porSubarea && rDash.porSubarea[DEPTO_ACTUAL]) || {};
-  const puedeEditar = !!rList.puedeEditar;
+  DASHBOARD_CACHE = rDash;
+  PORSUBAREA_GLOBAL = rDash.porSubarea || {};
+  renderDetalleDepto_();
+}
 
-  const subareas = Object.keys(PORSUBAREA_CACHE).sort();
+function recomputarSubareasLocal_() {
+  const resumen = {};
+  ACTIVIDADES_CACHE.forEach(a => {
+    const sub = a.subarea || '(Sin subárea)';
+    if (!resumen[sub]) resumen[sub] = { total: 0, completado: 0, en_proceso: 0, pendiente: 0, na: 0 };
+    const ds = resumen[sub];
+    ds.total++;
+    if (a.estatus === 'Completado') ds.completado++;
+    else if (a.estatus === 'En Proceso') ds.en_proceso++;
+    else if (a.estatus === 'N/A') ds.na++;
+    else ds.pendiente++;
+  });
+  Object.keys(resumen).forEach(sub => {
+    const ds = resumen[sub];
+    const aplic = ds.total - ds.na;
+    ds.porcentaje = aplic > 0 ? Math.round((ds.completado / aplic) * 100) : 0;
+  });
+  PORSUBAREA_GLOBAL[DEPTO_ACTUAL] = resumen;
+  return resumen;
+}
 
-  let html = `<div class="encabezado-vista">Mostrando: ${DEPTO_ACTUAL}${SUBAREA_ACTIVA ? ' &gt; ' + SUBAREA_ACTIVA : ''}</div>`;
+function renderDetalleDepto_() {
+  const target = document.getElementById('main');
+  const puedeEditar = SESSION.puedeEditar;
+  const subareasResumen = recomputarSubareasLocal_();
+  const subareas = Object.keys(subareasResumen).sort();
+
+  const contextoImpresion = 'Departamento: ' + DEPTO_ACTUAL + (SUBAREA_ACTIVA ? ' &gt; Subárea: ' + SUBAREA_ACTIVA : '');
+  let html = encabezadoImpresion_(contextoImpresion);
+
+  html += '<button class="btn secundario" onclick="irADashboard()" style="margin-bottom:14px">← Volver al dashboard</button>';
+  html += '<div class="encabezado-vista">Mostrando: ' + DEPTO_ACTUAL + (SUBAREA_ACTIVA ? ' &gt; ' + SUBAREA_ACTIVA : '') + '</div>';
 
   html += '<div class="chips">';
-  html += `<span class="chip ${SUBAREA_ACTIVA === '' ? 'activo' : ''}" onclick="seleccionarSubarea('')">Todas</span>`;
+  html += '<span class="chip ' + (SUBAREA_ACTIVA === '' ? 'activo' : '') + '" onclick="seleccionarSubarea(\'\')">Todas</span>';
   subareas.forEach(sub => {
-    html += `<span class="chip ${SUBAREA_ACTIVA === sub ? 'activo' : ''}" onclick="seleccionarSubarea('${sub.replace(/'/g, "\\'")}')">${sub}</span>`;
+    html += '<span class="chip ' + (SUBAREA_ACTIVA === sub ? 'activo' : '') + '" onclick="seleccionarSubarea(\'' + sub.replace(/'/g, "\\'") + '\')">' + sub + '</span>';
   });
   html += '</div>';
 
   html += '<div class="subarea-resumen">';
   subareas.forEach(sub => {
-    const ds = PORSUBAREA_CACHE[sub];
-    html += `
-      <div class="subarea-card" onclick="seleccionarSubarea('${sub.replace(/'/g, "\\'")}')" style="cursor:pointer">
-        <h4>${sub} <span class="pct-chico">${ds.porcentaje}%</span></h4>
-        <div class="conteos">
-          <b class="p">Pend: ${ds.pendiente}</b> · <b class="e">Proc: ${ds.en_proceso}</b> · <b class="c">Comp: ${ds.completado}</b> · <b class="n">N/A: ${ds.na}</b> · Total: ${ds.total}
-        </div>
-      </div>`;
+    const ds = subareasResumen[sub];
+    html += '<div class="subarea-card" onclick="seleccionarSubarea(\'' + sub.replace(/'/g, "\\'") + '\')">' +
+      '<h4>' + sub + ' <span class="pct-chico">' + ds.porcentaje + '%</span></h4>' +
+      '<div class="conteos"><b class="p">Pend: ' + ds.pendiente + '</b> · <b class="e">Proc: ' + ds.en_proceso + '</b> · <b class="c">Comp: ' + ds.completado + '</b> · <b class="n">N/A: ' + ds.na + '</b> · Total: ' + ds.total + '</div></div>';
   });
   html += '</div>';
 
-  html += `
-    <div class="barra-acciones">
-      <span></span>
-      ${SESSION.puedeEditar ? '<button class="btn" onclick="abrirModalNuevo(\'' + DEPTO_ACTUAL + '\')">+ Nuevo pendiente en ' + DEPTO_ACTUAL + '</button>' : ''}
-      <button class="btn secundario" onclick="window.print()">🖨️ Exportar PDF</button>
-    </div>
-    <div class="filtros">
-      <select id="filtroEstatus" onchange="aplicarFiltro()">
-        <option value="">Todos los estatus</option>
-        <option value="Pendiente">Pendiente</option>
-        <option value="En Proceso">En Proceso</option>
-        <option value="Completado">Completado</option>
-        <option value="N/A">N/A</option>
-      </select>
-      <input type="text" id="filtroTexto" placeholder="Buscar actividad..." oninput="aplicarFiltro()">
-    </div>
-    <div id="tablaContenedor"></div>`;
+  html += '<div class="barra-acciones"><div class="izq">' +
+    (SESSION.puedeEditar ? '<button class="btn" onclick="abrirModalNuevo(\'' + DEPTO_ACTUAL + '\')">+ Nuevo pendiente en ' + DEPTO_ACTUAL + '</button>' : '') +
+    '<button class="btn refrescar" onclick="fetchDetalleDepto()">🔄 Actualizar</button></div>' +
+    '<button class="btn secundario" onclick="window.print()">🖨️ Exportar PDF</button></div>';
+
+  html += '<div class="filtros">' +
+    '<select id="filtroEstatus" onchange="aplicarFiltro()"><option value="">Todos los estatus</option>' +
+    '<option value="Pendiente">Pendiente</option><option value="En Proceso">En Proceso</option>' +
+    '<option value="Completado">Completado</option><option value="N/A">N/A</option></select>' +
+    '<input type="text" id="filtroTexto" placeholder="Buscar actividad..." oninput="aplicarFiltro()"></div>' +
+    '<div id="tablaContenedor"></div>';
 
   target.innerHTML = html;
   dibujarTabla(filtrarActividades_(), puedeEditar);
 }
 
-function seleccionarSubarea(sub) {
-  SUBAREA_ACTIVA = sub;
-  cargarDetalleDepto();
-}
+function seleccionarSubarea(sub) { SUBAREA_ACTIVA = sub; renderDetalleDepto_(); }
 
 function filtrarActividades_() {
   let lista = ACTIVIDADES_CACHE;
@@ -374,9 +431,7 @@ function filtrarActividades_() {
 function aplicarFiltro() {
   const est = document.getElementById('filtroEstatus').value;
   const txt = document.getElementById('filtroTexto').value.toLowerCase();
-  const filtradas = filtrarActividades_().filter(a =>
-    (!est || a.estatus === est) && (!txt || a.actividad.toLowerCase().includes(txt))
-  );
+  const filtradas = filtrarActividades_().filter(a => (!est || a.estatus === est) && (!txt || a.actividad.toLowerCase().includes(txt)));
   dibujarTabla(filtradas, SESSION.puedeEditar);
 }
 
@@ -388,32 +443,25 @@ function claseEstatus_(estatus) {
 }
 
 function dibujarTabla(actividades, puedeEditar) {
-  let html = `<table><thead><tr>
-    <th>Subárea / Actividad</th><th>Responsable</th><th>Fecha compromiso</th><th>Estatus</th><th>Comentarios</th>
-  </tr></thead><tbody>`;
-
+  let html = '<table><thead><tr><th>Subárea / Actividad</th><th>Responsable</th><th>Fecha compromiso</th><th>Estatus</th><th>Comentarios</th></tr></thead><tbody>';
   actividades.forEach(a => {
-    const claseFila = claseEstatus_(a.estatus);
-    html += `<tr class="${claseFila}">
-      <td><span class="subarea-tag">${a.subarea || ''}</span><br>${a.actividad}</td>
-      <td>${editable(puedeEditar, a.id, 'responsable', a.responsable, 'text')}</td>
-      <td>${editableFecha(puedeEditar, a)}</td>
-      <td>${editableEstatus(puedeEditar, a.id, a.estatus)}</td>
-      <td style="min-width:200px">${bloqueComentarios(puedeEditar, a.id, a.comentarios)}</td>
-    </tr>`;
+    html += '<tr class="' + claseEstatus_(a.estatus) + '">' +
+      '<td><span class="subarea-tag">' + (a.subarea || '') + '</span><br>' + a.actividad + '</td>' +
+      '<td>' + editable(puedeEditar, a.id, 'responsable', a.responsable, 'text') + '</td>' +
+      '<td>' + editableFecha(puedeEditar, a) + '</td>' +
+      '<td>' + editableEstatus(puedeEditar, a.id, a.estatus) + '</td>' +
+      '<td style="min-width:200px">' + bloqueComentarios(puedeEditar, a.id, a.comentarios) + '</td></tr>';
   });
   html += '</tbody></table>';
 
-  // Versión plana para impresión (evita mostrar selects/inputs feos en el PDF)
   let htmlImp = '<table><thead><tr><th>Subárea / Actividad</th><th>Responsable</th><th>Fecha compromiso</th><th>Estatus</th><th>Últ. comentario</th></tr></thead><tbody>';
   actividades.forEach(a => {
     const ultComentario = (a.comentarios && a.comentarios.length) ? a.comentarios[a.comentarios.length - 1].texto : '';
-    htmlImp += `<tr><td>${a.subarea || ''} — ${a.actividad}</td><td>${a.responsable || ''}</td><td>${formatearFecha(a.fecha_fin_plan)}</td><td>${a.estatus}</td><td>${ultComentario}</td></tr>`;
+    htmlImp += '<tr><td>' + (a.subarea || '') + ' — ' + a.actividad + '</td><td>' + (a.responsable || '') + '</td><td>' + formatearFecha(a.fecha_fin_plan) + '</td><td>' + a.estatus + '</td><td>' + ultComentario + '</td></tr>';
   });
   htmlImp += '</tbody></table>';
 
-  document.getElementById('tablaContenedor').innerHTML =
-    '<div class="solo-pantalla">' + html + '</div><div class="solo-impresion">' + htmlImp + '</div>';
+  document.getElementById('tablaContenedor').innerHTML = '<div class="solo-pantalla">' + html + '</div><div class="solo-impresion">' + htmlImp + '</div>';
 }
 
 function bloqueComentarios(puedeEditar, id, comentarios) {
@@ -424,15 +472,14 @@ function bloqueComentarios(puedeEditar, id, comentarios) {
   } else {
     const ultimo = lista[lista.length - 1];
     const fecha = ultimo.fecha ? new Date(ultimo.fecha).toLocaleDateString('es-DO', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
-    html += `<b>${ultimo.autor}</b> (${fecha}): ${ultimo.texto.substring(0, 60)}${ultimo.texto.length > 60 ? '…' : ''}`;
-    if (lista.length > 0) html += `<br><span class="ver-todos" onclick="verTodosComentarios('${id}')">Ver todos (${lista.length})</span>`;
+    html += '<b>' + ultimo.autor + '</b> (' + fecha + '): ' + ultimo.texto.substring(0, 60) + (ultimo.texto.length > 60 ? '…' : '');
+    html += '<br><span class="ver-todos" onclick="verTodosComentarios(\'' + id + '\')">Ver todos (' + lista.length + ')</span>';
   }
   html += '</div>';
   if (puedeEditar) {
-    html += `<div style="display:flex; gap:4px; margin-top:4px;">
-      <input type="text" id="nuevoComentario_${id}" placeholder="Agregar comentario..." style="flex:1; padding:4px; font-size:11px; border:1px solid #ddd; border-radius:4px;">
-      <button onclick="agregarComentario('${id}')" style="background:var(--azul); color:white; border:none; border-radius:4px; padding:4px 8px; font-size:11px; cursor:pointer;">+</button>
-    </div>`;
+    html += '<div style="display:flex; gap:4px; margin-top:4px;">' +
+      '<input type="text" id="nuevoComentario_' + id + '" placeholder="Agregar comentario..." style="flex:1; padding:4px; font-size:11px; border:1px solid #ddd; border-radius:4px;">' +
+      '<button onclick="agregarComentario(\'' + id + '\')" style="background:var(--azul); color:white; border:none; border-radius:4px; padding:4px 8px; font-size:11px; cursor:pointer;">+</button></div>';
   }
   return html;
 }
@@ -440,13 +487,29 @@ function bloqueComentarios(puedeEditar, id, comentarios) {
 function verTodosComentarios(id) {
   const act = ACTIVIDADES_CACHE.find(a => a.id === id);
   if (!act) return;
-  let html = `<div class="modal"><h3>Historial de comentarios</h3>`;
-  (act.comentarios || []).forEach(c => {
+  const puedeBorrar = SESSION.codigo === 'RA1614';
+  let html = '<div class="modal"><h3>Historial de comentarios</h3>';
+  (act.comentarios || []).forEach((c, i) => {
     const fecha = c.fecha ? new Date(c.fecha).toLocaleString('es-DO') : '';
-    html += `<div class="comentario-item"><b>${c.autor}</b> <span class="comentario-fecha">${fecha}</span><br>${c.texto}</div>`;
+    html += '<div class="comentario-item"><span><b>' + c.autor + '</b> <span class="comentario-fecha">' + fecha + '</span><br>' + c.texto + '</span>' +
+      (puedeBorrar ? '<button class="btn-borrar-comentario" onclick="borrarComentario(\'' + id + '\',' + i + ')" title="Borrar">🗑️</button>' : '') + '</div>';
   });
-  html += `<div class="acciones"><button class="btn" onclick="cerrarModal()">Cerrar</button></div></div>`;
+  html += '<div class="acciones"><button class="btn" onclick="cerrarModal()">Cerrar</button></div></div>';
   abrirOverlay(html);
+}
+
+async function borrarComentario(id, indice) {
+  const depto = (ACTIVIDADES_CACHE.find(a => a.id === id) || {}).depto;
+  const r = await apiPost({ action: 'borrarComentario', id, depto, codigo: SESSION.codigo, indice });
+  if (r.ok) {
+    const act = ACTIVIDADES_CACHE.find(a => a.id === id);
+    if (act) act.comentarios = r.comentarios;
+    mostrarToast('Comentario borrado');
+    verTodosComentarios(id);
+    aplicarFiltro();
+  } else {
+    mostrarToast(r.error || 'Error al borrar', true);
+  }
 }
 
 async function agregarComentario(id) {
@@ -475,25 +538,23 @@ function formatearFecha(f) {
 
 function editable(puedeEditar, id, campo, valor, tipo) {
   if (!puedeEditar) return valor || '';
-  return `<input class="edit" type="${tipo}" value="${valor || ''}" onchange="guardarCampo('${id}','${campo}',this.value)">`;
+  return '<input class="edit" type="' + tipo + '" value="' + (valor || '') + '" onchange="guardarCampo(\'' + id + '\',\'' + campo + '\',this.value)">';
 }
 
 function editableFecha(puedeEditar, a) {
   const yaTenia = a.fecha_fin_plan && String(a.fecha_fin_plan).trim() !== '';
   const puedeReeditar = ['RA1614', 'EQ1267', 'DC9169'].indexOf(SESSION.codigo) > -1;
   if (!puedeEditar) return formatearFecha(a.fecha_fin_plan);
-  if (yaTenia && !puedeReeditar) {
-    return formatearFecha(a.fecha_fin_plan) + ' 🔒';
-  }
-  return `<input class="edit" type="date" value="${formatearFecha(a.fecha_fin_plan)}" onchange="guardarCampo('${a.id}','fecha_fin_plan',this.value)">`;
+  if (yaTenia && !puedeReeditar) return formatearFecha(a.fecha_fin_plan) + ' 🔒';
+  return '<input class="edit" type="date" value="' + formatearFecha(a.fecha_fin_plan) + '" onchange="guardarCampo(\'' + a.id + '\',\'fecha_fin_plan\',this.value)">';
 }
 
 function editableEstatus(puedeEditar, id, valor) {
   const opciones = ['Pendiente', 'En Proceso', 'Completado', 'N/A'];
   const pillClase = claseEstatus_(valor) + '-pill';
-  if (!puedeEditar) return `<span class="estado-pill ${pillClase}">${valor}</span>`;
-  let html = `<select onchange="guardarCampo('${id}','estatus',this.value)">`;
-  opciones.forEach(o => html += `<option value="${o}" ${o === valor ? 'selected' : ''}>${o}</option>`);
+  if (!puedeEditar) return '<span class="estado-pill ' + pillClase + '">' + valor + '</span>';
+  let html = '<select onchange="guardarCampo(\'' + id + '\',\'estatus\',this.value)">';
+  opciones.forEach(o => html += '<option value="' + o + '" ' + (o === valor ? 'selected' : '') + '>' + o + '</option>');
   html += '</select>';
   return html;
 }
@@ -510,6 +571,7 @@ async function guardarCampo(id, campo, valor) {
     } else {
       mostrarToast('✓ Guardado');
     }
+    renderDetalleDepto_(); // recalcula tarjetas de subárea al instante, sin ir al servidor
   } else {
     mostrarToast(r.error || 'Error al guardar', true);
   }
@@ -519,25 +581,27 @@ async function guardarCampo(id, campo, valor) {
 
 function abrirModalNuevo(deptoFijo) {
   const deptos = obtenerDeptosEditables_();
-  const opcionesDepto = deptos.map(d => `<option value="${d}" ${d === deptoFijo ? 'selected' : ''}>${d}</option>`).join('');
-  const html = `
-    <div class="modal">
-      <h3>Nuevo pendiente</h3>
-      ${deptoFijo ? `<input type="hidden" id="nDepto" value="${deptoFijo}">` : `<label>Departamento</label><select id="nDepto">${opcionesDepto}</select>`}
-      <label>Subárea</label>
-      <input type="text" id="nSubarea" placeholder="Ej: Cocina, Recepción...">
-      <label>Descripción de la actividad</label>
-      <textarea id="nActividad" rows="3" placeholder="¿Qué hay que hacer?"></textarea>
-      <label>Fecha de compromiso</label>
-      <input type="date" id="nFecha">
-      <label>Responsable</label>
-      <input type="text" id="nResponsable" placeholder="Nombre del responsable">
-      <div class="acciones">
-        <button class="btn secundario" onclick="cerrarModal()">Cancelar</button>
-        <button class="btn" onclick="guardarNuevoPendiente()">Guardar</button>
-      </div>
-    </div>`;
+  const opcionesDepto = deptos.map(d => '<option value="' + d + '" ' + (d === deptoFijo ? 'selected' : '') + '>' + d + '</option>').join('');
+  const html = '<div class="modal"><h3>Nuevo pendiente</h3>' +
+    (deptoFijo ? '<input type="hidden" id="nDepto" value="' + deptoFijo + '">' :
+      '<label>Departamento</label><select id="nDepto" onchange="actualizarSugerenciasSubarea_()">' + opcionesDepto + '</select>') +
+    '<label>Subárea</label><input type="text" id="nSubarea" list="listaSubareas" placeholder="Elige o escribe una nueva"><datalist id="listaSubareas"></datalist>' +
+    '<label>Descripción de la actividad</label><textarea id="nActividad" rows="3" placeholder="¿Qué hay que hacer?"></textarea>' +
+    '<label>Fecha de compromiso</label><input type="date" id="nFecha">' +
+    '<label>Responsable</label><input type="text" id="nResponsable" placeholder="Nombre del responsable">' +
+    '<div class="acciones"><button class="btn secundario" onclick="cerrarModal()">Cancelar</button>' +
+    '<button class="btn" onclick="guardarNuevoPendiente()">Guardar</button></div></div>';
   abrirOverlay(html);
+  actualizarSugerenciasSubarea_(deptoFijo);
+}
+
+function actualizarSugerenciasSubarea_(deptoForzado) {
+  const selDepto = document.getElementById('nDepto');
+  const depto = deptoForzado || (selDepto ? selDepto.value : DEPTO_ACTUAL);
+  const datalist = document.getElementById('listaSubareas');
+  if (!datalist) return;
+  const subareasDepto = Object.keys(PORSUBAREA_GLOBAL[depto] || {});
+  datalist.innerHTML = subareasDepto.map(s => '<option value="' + s + '">').join('');
 }
 
 function obtenerDeptosEditables_() {
@@ -558,13 +622,11 @@ async function guardarNuevoPendiente() {
   if (r.ok) {
     mostrarToast('✓ Pendiente creado');
     cerrarModal();
-    if (DEPTO_ACTUAL === depto) cargarDetalleDepto(); else cargarDashboard();
+    if (VISTA_ACTUAL === 'depto' && DEPTO_ACTUAL === depto) fetchDetalleDepto(); else cargarDashboard();
   } else {
     mostrarToast(r.error || 'Error al crear', true);
   }
 }
-
-// ===== MODAL GENÉRICO =====
 
 function abrirOverlay(htmlContenido) {
   cerrarModal();
