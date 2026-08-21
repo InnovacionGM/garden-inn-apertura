@@ -81,7 +81,7 @@
   .estado-pill.completado-pill { background: #00CC00; }
   .estado-pill.na-pill { background: #BEBEBE; }
   .alerta-vencida { color: #b36b00; margin-right: 4px; }
-  .firma-rap { text-align: center; font-style: italic; font-family: 'Brush Script MT', cursive; color: #999; font-size: 12px; padding: 18px 0 10px; }
+  .firma-rap { position: fixed; bottom: 8px; left: 12px; font-style: italic; font-family: 'Brush Script MT', cursive; color: #999; font-size: 13px; z-index: 50; pointer-events: none; }
 
   .comentario-resumen { font-size: 11px; color: #555; }
   .comentario-resumen .ver-todos { color: var(--azul); cursor: pointer; text-decoration: underline; font-size: 10px; }
@@ -92,6 +92,7 @@
 
   .doc-link { color: white; text-decoration: underline; font-size: 13px; margin-left: 14px; }
   select, input.edit { width: 100%; padding: 4px; font-size: 12px; border: 1px solid #ddd; border-radius: 4px; }
+  #selectorProyecto { width: auto !important; min-width: 180px; padding: 6px 10px; font-weight: bold; }
   .filtros { margin-bottom: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
   .filtros select, .filtros input { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
   .volver { background: none; border: 1px solid white; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
@@ -220,12 +221,15 @@ function actualizarSelectorProyecto_() {
   if (PROYECTOS_CACHE.length <= 1 && SESSION.codigo !== 'RA1614') { slot.innerHTML = ''; return; }
   let html = '';
   if (PROYECTOS_CACHE.length > 1) {
-    html += '<select id="selectorProyecto" onchange="cambiarProyecto(this.value)" style="margin-left:14px;padding:4px;border-radius:4px;border:none;font-size:12px">';
+    html += '<select id="selectorProyecto" onchange="cambiarProyecto(this.value)">';
     PROYECTOS_CACHE.forEach(p => html += '<option value="' + p.id + '" ' + (p.id === PROYECTO_ACTUAL_ID ? 'selected' : '') + '>' + p.nombre + '</option>');
     html += '</select>';
   }
   if (SESSION.codigo === 'RA1614') {
     html += ' <button class="volver" style="margin-left:8px" onclick="abrirModalNuevoProyecto()">+ Nuevo proyecto</button>';
+    if (PROYECTOS_CACHE.length > 1) {
+      html += ' <button class="volver" style="margin-left:8px" onclick="confirmarInactivarProyecto()">🗑️ Inactivar proyecto</button>';
+    }
   }
   slot.innerHTML = html;
 }
@@ -234,6 +238,20 @@ function cambiarProyecto(id) {
   PROYECTO_ACTUAL_ID = id;
   cargarConfig();
   irADashboard();
+}
+
+async function confirmarInactivarProyecto() {
+  const p = PROYECTOS_CACHE.find(x => x.id === PROYECTO_ACTUAL_ID);
+  if (!p) return;
+  if (!confirm('¿Inactivar el proyecto "' + p.nombre + '"? No se borran los datos, pero desaparece de la lista para todos.')) return;
+  const r = await apiPost({ action: 'inactivarProyecto', proyecto: PROYECTO_ACTUAL_ID, codigo: SESSION.codigo });
+  if (r.ok) {
+    mostrarToast('Proyecto inactivado');
+    PROYECTO_ACTUAL_ID = null;
+    await iniciarSesionCompleta();
+  } else {
+    mostrarToast(r.error || 'Error', true);
+  }
 }
 
 function abrirModalNuevoProyecto() {
@@ -301,10 +319,11 @@ function vistaHeader() {
   const encabezadoPersona = (SESSION.puesto ? SESSION.puesto : SESSION.rol) + ' — ' + (SESSION.nombre || '');
   const puedeEditarFechaApertura = ['RA1614', 'DC9169'].indexOf(SESSION.codigo) > -1;
   const esRob = SESSION.codigo === 'RA1614';
+  const puedeVerUsuarios = ['RA1614', 'EQ1267'].indexOf(SESSION.codigo) > -1;
 
   return '<header><div><h1>🏨 Grumasa Pre-Opening Tracker — ' + encabezadoPersona + '</h1>' +
     '<span id="docLinkSlot"></span><span id="selectorProyectoSlot"></span>' +
-    (esRob ? ' <button class="volver" style="margin-left:10px" onclick="verListaUsuarios()">👥 Usuarios</button>' : '') +
+    (puedeVerUsuarios ? ' <button class="volver" style="margin-left:10px" onclick="verListaUsuarios()">👥 Usuarios</button>' : '') +
     '</div>' +
     '<button class="volver" onclick="cerrarSesion()">Salir</button></header>' +
     '<div class="barra-fecha"><span>📅 Hoy: ' + fechaHoyLegible_() + '</span>' +
@@ -316,12 +335,67 @@ function vistaHeader() {
 async function verListaUsuarios() {
   const r = await apiGet({ action: 'usuarios', codigo: SESSION.codigo });
   if (!r.ok) { mostrarToast(r.error || 'Error', true); return; }
-  let html = '<div class="modal" style="max-width:600px"><h3>Usuarios del sistema</h3><table style="font-size:12px"><thead><tr><th>Nombre</th><th>Puesto</th><th>Código</th><th>Áreas</th></tr></thead><tbody>';
+  const puedeGestionar = ['RA1614', 'EQ1267'].indexOf(SESSION.codigo) > -1;
+  let html = '<div class="modal" style="max-width:680px"><h3>Usuarios del sistema</h3><table style="font-size:12px"><thead><tr><th>Nombre</th><th>Puesto</th><th>Código</th><th>Áreas</th><th>Estado</th>' + (puedeGestionar ? '<th></th>' : '') + '</tr></thead><tbody>';
   r.usuarios.forEach(u => {
-    html += '<tr><td>' + u.nombre + '</td><td>' + u.puesto + '</td><td><b>' + u.codigo + '</b></td><td>' + (u.areas ? u.areas.join(', ') : 'Todas') + '</td></tr>';
+    const areasTxt = u.areas ? u.areas.join(', ') : 'Todas';
+    const estadoTxt = u.activo ? '<span style="color:var(--verde)">Activo</span>' : '<span style="color:var(--rojo)">Inactivo</span>';
+    html += '<tr><td>' + u.nombre + '</td><td>' + u.puesto + '</td><td><b>' + u.codigo + '</b></td><td>' + areasTxt + '</td><td>' + estadoTxt + '</td>';
+    if (puedeGestionar) {
+      html += '<td>' + (u.activo
+        ? '<button class="btn-borrar-comentario" onclick="cambiarEstadoUsuario(\'' + u.codigo + '\', false)" title="Inactivar">🗑️</button>'
+        : '<button class="btn-borrar-comentario" style="color:var(--verde)" onclick="cambiarEstadoUsuario(\'' + u.codigo + '\', true)" title="Reactivar">↩️</button>') + '</td>';
+    }
+    html += '</tr>';
   });
-  html += '</tbody></table><div class="acciones"><button class="btn" onclick="cerrarModal()">Cerrar</button></div></div>';
+  html += '</tbody></table>';
+  if (puedeGestionar) {
+    html += '<hr style="margin:16px 0"><h3 style="font-size:15px">+ Nuevo usuario</h3>' +
+      '<label>Nombre</label><input type="text" id="nuNombre">' +
+      '<label>Puesto</label><input type="text" id="nuPuesto">' +
+      '<label>Email</label><input type="text" id="nuEmail">' +
+      '<label>Código de acceso</label><input type="text" id="nuCodigo">' +
+      '<label>Rol</label><select id="nuRol" onchange="document.getElementById(\'nuAreasWrap\').style.display=this.value===\'corporativo\'?\'block\':\'none\'">' +
+      '<option value="corporativo">Corporativo (solo sus áreas)</option>' +
+      '<option value="jefe">Jefe (ve y edita todo)</option>' +
+      '<option value="master">Master (control total)</option>' +
+      '<option value="lector">Solo lectura</option></select>' +
+      '<div id="nuAreasWrap"><label>Áreas (separadas por coma, ej: AYB,BANQUETES)</label><input type="text" id="nuAreas"></div>' +
+      '<div class="acciones"><button class="btn" onclick="guardarNuevoUsuario()">Crear usuario</button></div>';
+  }
+  html += '<div class="acciones"><button class="btn secundario" onclick="cerrarModal()">Cerrar</button></div></div>';
   abrirOverlay(html);
+}
+
+async function guardarNuevoUsuario() {
+  const nombre = document.getElementById('nuNombre').value.trim();
+  const puesto = document.getElementById('nuPuesto').value.trim();
+  const email = document.getElementById('nuEmail').value.trim();
+  const codigo = document.getElementById('nuCodigo').value.trim();
+  const rol = document.getElementById('nuRol').value;
+  const areasTxt = document.getElementById('nuAreas').value.trim();
+  const areas = rol === 'corporativo' ? areasTxt.split(',').map(s => s.trim()).filter(Boolean) : null;
+
+  if (!nombre || !codigo) { mostrarToast('Falta nombre o código', true); return; }
+
+  const r = await apiPost({ action: 'crearUsuario', nombre, puesto, email, codigo, rol, areas, codigoSolicitante: SESSION.codigo });
+  if (r.ok) {
+    mostrarToast('✓ Usuario creado');
+    verListaUsuarios();
+  } else {
+    mostrarToast(r.error || 'Error al crear usuario', true);
+  }
+}
+
+async function cambiarEstadoUsuario(codigo, activar) {
+  const accion = activar ? 'reactivarUsuario' : 'inactivarUsuario';
+  const r = await apiPost({ action: accion, codigo, codigoSolicitante: SESSION.codigo });
+  if (r.ok) {
+    mostrarToast(activar ? 'Usuario reactivado' : 'Usuario inactivado');
+    verListaUsuarios();
+  } else {
+    mostrarToast(r.error || 'Error', true);
+  }
 }
 
 async function guardarFechaApertura() {
@@ -390,7 +464,9 @@ function renderDashboard_() {
     '<button class="btn refrescar" onclick="cargarDashboard()">🔄 Actualizar</button></div>' +
     '<button class="btn secundario" onclick="window.print()">🖨️ Exportar PDF</button></div>';
 
-  html += '<div class="totales-globales"><div class="totales-fila">' +
+  html += '<div class="totales-globales">' +
+    '<div style="font-size:24px;font-weight:bold;color:var(--azul);margin-bottom:10px">' + (r.nombreProyecto || '').toUpperCase() + '</div>' +
+    '<div class="totales-fila">' +
     '<div class="item avance"><div class="etiqueta">AVANCE GENERAL</div><div class="valor">' + pctGlobal + '%</div></div>' +
     '<div class="item"><div class="etiqueta">TOTAL</div><div class="valor" style="color:var(--azul)">' + tot.total + '</div></div>' +
     '<div class="item"><div class="etiqueta">PENDIENTES</div><div class="valor" style="color:var(--rojo)">' + tot.pendiente + '</div></div>' +
@@ -468,6 +544,7 @@ function renderDetalleDepto_() {
   let html = encabezadoImpresion_(contextoImpresion);
 
   html += '<button class="btn secundario" onclick="irADashboard()" style="margin-bottom:14px">← Volver al dashboard</button>';
+  html += '<div style="font-size:20px;font-weight:bold;color:var(--azul)">' + ((DASHBOARD_CACHE && DASHBOARD_CACHE.nombreProyecto) || '').toUpperCase() + '</div>';
   html += '<div class="encabezado-vista">Mostrando: ' + DEPTO_ACTUAL + (SUBAREA_ACTIVA ? ' &gt; ' + SUBAREA_ACTIVA : '') + '</div>';
 
   html += '<div class="chips">';
