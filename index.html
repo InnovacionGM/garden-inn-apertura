@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Garden Inn Apertura - Grumasa</title>
+<title>Grumasa Pre-Opening Tracker</title>
 <style>
   :root {
     --azul: #203864;
@@ -153,6 +153,8 @@ let DIAS_APERTURA = null;
 let FECHA_APERTURA_STR = '';
 let VISTA_ACTUAL = 'dashboard'; // 'dashboard' | 'depto'
 let PENDIENTES_CARGAS = 0;
+let PROYECTOS_CACHE = [];
+let PROYECTO_ACTUAL_ID = null;
 
 function guardarSesion(s) { SESSION = s; localStorage.setItem('gia_session', JSON.stringify(s)); }
 function cerrarSesion() { localStorage.removeItem('gia_session'); SESSION = null; render(); }
@@ -196,22 +198,83 @@ function render() {
     return;
   }
   app.innerHTML = vistaHeader() + '<div class="contenedor" id="main"><div class="cargando">Cargando...</div></div>';
+  iniciarSesionCompleta();
+}
+
+async function iniciarSesionCompleta() {
+  const r = await apiGet({ action: 'proyectos', codigo: SESSION.codigo });
+  if (r.ok && r.proyectos && r.proyectos.length) {
+    PROYECTOS_CACHE = r.proyectos;
+    if (!PROYECTO_ACTUAL_ID || !PROYECTOS_CACHE.find(p => p.id === PROYECTO_ACTUAL_ID)) {
+      PROYECTO_ACTUAL_ID = PROYECTOS_CACHE[0].id;
+    }
+  }
+  actualizarSelectorProyecto_();
   cargarConfig();
   irADashboard();
 }
 
+function actualizarSelectorProyecto_() {
+  const slot = document.getElementById('selectorProyectoSlot');
+  if (!slot) return;
+  if (PROYECTOS_CACHE.length <= 1 && SESSION.codigo !== 'RA1614') { slot.innerHTML = ''; return; }
+  let html = '';
+  if (PROYECTOS_CACHE.length > 1) {
+    html += '<select id="selectorProyecto" onchange="cambiarProyecto(this.value)" style="margin-left:14px;padding:4px;border-radius:4px;border:none;font-size:12px">';
+    PROYECTOS_CACHE.forEach(p => html += '<option value="' + p.id + '" ' + (p.id === PROYECTO_ACTUAL_ID ? 'selected' : '') + '>' + p.nombre + '</option>');
+    html += '</select>';
+  }
+  if (SESSION.codigo === 'RA1614') {
+    html += ' <button class="volver" style="margin-left:8px" onclick="abrirModalNuevoProyecto()">+ Nuevo proyecto</button>';
+  }
+  slot.innerHTML = html;
+}
+
+function cambiarProyecto(id) {
+  PROYECTO_ACTUAL_ID = id;
+  cargarConfig();
+  irADashboard();
+}
+
+function abrirModalNuevoProyecto() {
+  const html = '<div class="modal"><h3>Nuevo proyecto / hotel</h3>' +
+    '<label>Nombre del hotel</label><input type="text" id="npNombre" placeholder="Ej: Dreams Onyx Cancún">' +
+    '<label>Fecha de apertura estimada</label><input type="date" id="npFecha">' +
+    '<div class="acciones"><button class="btn secundario" onclick="cerrarModal()">Cancelar</button>' +
+    '<button class="btn" onclick="guardarNuevoProyecto()">Crear proyecto</button></div></div>';
+  abrirOverlay(html);
+}
+
+async function guardarNuevoProyecto() {
+  const nombre = document.getElementById('npNombre').value.trim();
+  const fecha_apertura = document.getElementById('npFecha').value;
+  if (!nombre) { mostrarToast('Falta el nombre del hotel', true); return; }
+  const r = await apiPost({ action: 'crearProyecto', nombre, fecha_apertura, codigo: SESSION.codigo });
+  if (r.ok) {
+    mostrarToast('✓ Proyecto creado (' + r.cargadas + ' actividades cargadas)');
+    cerrarModal();
+    PROYECTO_ACTUAL_ID = r.id;
+    await iniciarSesionCompleta();
+  } else {
+    mostrarToast(r.error || 'Error al crear proyecto', true);
+  }
+}
+
 async function cargarConfig() {
-  const r = await apiGet({ action: 'config' });
+  const r = await apiGet({ action: 'config', proyecto: PROYECTO_ACTUAL_ID });
+  DOC_FOLDER_URL = '';
+  const el = document.getElementById('docLinkSlot');
   if (r.ok && r.docFolderUrl) {
     DOC_FOLDER_URL = r.docFolderUrl;
-    const el = document.getElementById('docLinkSlot');
     if (el) el.innerHTML = '<a class="doc-link" href="' + DOC_FOLDER_URL + '" target="_blank">📁 Documentación</a>';
+  } else if (el) {
+    el.innerHTML = '';
   }
 }
 
 function vistaLogin() {
   return '<div class="login-box"><img src="logo.jpg" alt="Grumasa" style="width:90px;border-radius:8px;margin-bottom:10px">' +
-    '<h2>Control de Apertura Garden Inn<br>Corporativo Grumasa</h2>' +
+    '<h2>Grumasa Pre-Opening Tracker</h2>' +
     '<p style="color:#666;font-size:13px">Ingresa tu código de acceso</p>' +
     '<input type="password" id="codigo" placeholder="Código">' +
     '<button id="btnLogin">Entrar</button>' +
@@ -239,8 +302,8 @@ function vistaHeader() {
   const puedeEditarFechaApertura = ['RA1614', 'DC9169'].indexOf(SESSION.codigo) > -1;
   const esRob = SESSION.codigo === 'RA1614';
 
-  return '<header><div><h1>🏨 Garden Inn Apertura — ' + encabezadoPersona + '</h1>' +
-    '<span id="docLinkSlot"></span>' +
+  return '<header><div><h1>🏨 Grumasa Pre-Opening Tracker — ' + encabezadoPersona + '</h1>' +
+    '<span id="docLinkSlot"></span><span id="selectorProyectoSlot"></span>' +
     (esRob ? ' <button class="volver" style="margin-left:10px" onclick="verListaUsuarios()">👥 Usuarios</button>' : '') +
     '</div>' +
     '<button class="volver" onclick="cerrarSesion()">Salir</button></header>' +
@@ -264,7 +327,7 @@ async function verListaUsuarios() {
 async function guardarFechaApertura() {
   const fecha = document.getElementById('inputFechaApertura').value;
   if (!fecha) return;
-  const r = await apiPost({ action: 'setFechaApertura', codigo: SESSION.codigo, fecha });
+  const r = await apiPost({ action: 'setFechaApertura', proyecto: PROYECTO_ACTUAL_ID, codigo: SESSION.codigo, fecha });
   if (r.ok) { mostrarToast('Fecha de apertura actualizada'); irADashboard(); }
   else { mostrarToast(r.error || 'Error al actualizar', true); }
 }
@@ -279,7 +342,7 @@ function actualizarBarraDias_() {
 function encabezadoImpresion_(contexto) {
   const ahora = new Date().toLocaleString('es-DO');
   return '<div class="encabezado-impresion">' +
-    '<div class="titulo-doc">Garden Inn Apertura</div>' +
+    '<div class="titulo-doc">Grumasa Pre-Opening Tracker</div>' +
     '<div class="contexto-doc">' + contexto + '</div>' +
     '<div class="fecha-doc">Generado: ' + ahora + '</div></div>';
 }
@@ -295,7 +358,7 @@ async function irADashboard() {
 }
 
 async function cargarDashboard() {
-  const r = await apiGet({ action: 'dashboard', codigo: SESSION.codigo });
+  const r = await apiGet({ action: 'dashboard', proyecto: PROYECTO_ACTUAL_ID, codigo: SESSION.codigo });
   const main = document.getElementById('main');
   if (!r.ok) { main.innerHTML = '<p>Error: ' + r.error + '</p>'; return; }
 
@@ -364,8 +427,8 @@ async function verDetalleDepto(depto) {
 
 async function fetchDetalleDepto() {
   const [rDash, rList] = await Promise.all([
-    apiGet({ action: 'dashboard', codigo: SESSION.codigo }),
-    apiGet({ action: 'listar', depto: DEPTO_ACTUAL, codigo: SESSION.codigo })
+    apiGet({ action: 'dashboard', proyecto: PROYECTO_ACTUAL_ID, codigo: SESSION.codigo }),
+    apiGet({ action: 'listar', proyecto: PROYECTO_ACTUAL_ID, depto: DEPTO_ACTUAL, codigo: SESSION.codigo })
   ]);
   if (!rList.ok) { document.getElementById('main').innerHTML = '<p>Error: ' + rList.error + '</p>'; return; }
   ACTIVIDADES_CACHE = rList.actividades;
@@ -676,7 +739,7 @@ async function guardarNuevoPendiente() {
 
   if (!actividad) { mostrarToast('Falta la descripción de la actividad', true); return; }
 
-  const r = await apiPost({ action: 'crear', depto, subarea, actividad, fecha_fin_plan, responsable, co_responsable, codigo: SESSION.codigo });
+  const r = await apiPost({ action: 'crear', proyecto: PROYECTO_ACTUAL_ID, depto, subarea, actividad, fecha_fin_plan, responsable, co_responsable, codigo: SESSION.codigo });
   if (r.ok) {
     mostrarToast('✓ Pendiente creado');
     cerrarModal();
