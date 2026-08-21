@@ -336,11 +336,12 @@ async function verListaUsuarios() {
   const r = await apiGet({ action: 'usuarios', codigo: SESSION.codigo });
   if (!r.ok) { mostrarToast(r.error || 'Error', true); return; }
   const puedeGestionar = ['RA1614', 'EQ1267'].indexOf(SESSION.codigo) > -1;
-  let html = '<div class="modal" style="max-width:680px"><h3>Usuarios del sistema</h3><table style="font-size:12px"><thead><tr><th>Nombre</th><th>Puesto</th><th>Código</th><th>Áreas</th><th>Estado</th>' + (puedeGestionar ? '<th></th>' : '') + '</tr></thead><tbody>';
+  let html = '<div class="modal" style="max-width:680px"><h3>Usuarios del sistema</h3><table style="font-size:12px"><thead><tr><th></th><th>Nombre</th><th>Puesto</th><th>Código</th><th>Áreas</th><th>Estado</th>' + (puedeGestionar ? '<th></th>' : '') + '</tr></thead><tbody>';
   r.usuarios.forEach(u => {
     const areasTxt = u.areas ? u.areas.join(', ') : 'Todas';
     const estadoTxt = u.activo ? '<span style="color:var(--verde)">Activo</span>' : '<span style="color:var(--rojo)">Inactivo</span>';
-    html += '<tr><td>' + u.nombre + '</td><td>' + u.puesto + '</td><td><b>' + u.codigo + '</b></td><td>' + areasTxt + '</td><td>' + estadoTxt + '</td>';
+    const catIcono = u.enCatalogo ? '<span title="En Catálogo Maestro">📇</span>' : '<span title="Cuenta utilitaria, no está en el Catálogo Maestro">⚠️</span>';
+    html += '<tr><td>' + catIcono + '</td><td>' + u.nombre + '</td><td>' + u.puesto + '</td><td><b>' + u.codigo + '</b></td><td>' + areasTxt + '</td><td>' + estadoTxt + '</td>';
     if (puedeGestionar) {
       html += '<td>' + (u.activo
         ? '<button class="btn-borrar-comentario" onclick="cambiarEstadoUsuario(\'' + u.codigo + '\', false)" title="Inactivar">🗑️</button>'
@@ -351,34 +352,58 @@ async function verListaUsuarios() {
   html += '</tbody></table>';
   if (puedeGestionar) {
     html += '<hr style="margin:16px 0"><h3 style="font-size:15px">+ Nuevo usuario</h3>' +
-      '<label>Nombre</label><input type="text" id="nuNombre">' +
-      '<label>Puesto</label><input type="text" id="nuPuesto">' +
-      '<label>Email</label><input type="text" id="nuEmail">' +
-      '<label>Código de acceso</label><input type="text" id="nuCodigo">' +
-      '<label>Rol</label><select id="nuRol" onchange="document.getElementById(\'nuAreasWrap\').style.display=this.value===\'corporativo\'?\'block\':\'none\'">' +
+      '<p style="font-size:11px;color:#666">Escribe el código del Catálogo Maestro de Grumasa y busca — así no se inventan identidades nuevas.</p>' +
+      '<label>Código del Catálogo Maestro</label>' +
+      '<div style="display:flex;gap:6px"><input type="text" id="nuCodigo" style="flex:1"><button class="btn secundario" onclick="buscarEnCatalogoUI()">🔍 Buscar</button></div>' +
+      '<div id="nuResultadoCatalogo" style="margin-top:8px"></div>' +
+      '<div id="nuFormResto" style="display:none">' +
+      '<label>Rol en Pre-Opening Tracker</label><select id="nuRol" onchange="document.getElementById(\'nuAreasWrap\').style.display=this.value===\'corporativo\'?\'block\':\'none\'">' +
       '<option value="corporativo">Corporativo (solo sus áreas)</option>' +
       '<option value="jefe">Jefe (ve y edita todo)</option>' +
       '<option value="master">Master (control total)</option>' +
       '<option value="lector">Solo lectura</option></select>' +
       '<div id="nuAreasWrap"><label>Áreas (separadas por coma, ej: AYB,BANQUETES)</label><input type="text" id="nuAreas"></div>' +
-      '<div class="acciones"><button class="btn" onclick="guardarNuevoUsuario()">Crear usuario</button></div>';
+      '<div class="acciones"><button class="btn" onclick="guardarNuevoUsuario()">Crear usuario</button></div>' +
+      '</div>';
   }
   html += '<div class="acciones"><button class="btn secundario" onclick="cerrarModal()">Cerrar</button></div></div>';
   abrirOverlay(html);
 }
 
+let NU_CATALOGO_DATA = null;
+
+async function buscarEnCatalogoUI() {
+  const codigo = document.getElementById('nuCodigo').value.trim();
+  if (!codigo) return;
+  const r = await apiGet({ action: 'buscarCatalogo', codigo, codigoSolicitante: SESSION.codigo });
+  const div = document.getElementById('nuResultadoCatalogo');
+  const resto = document.getElementById('nuFormResto');
+  NU_CATALOGO_DATA = null;
+  if (!r.ok) { div.innerHTML = '<span style="color:var(--rojo)">' + (r.error || 'Error') + '</span>'; resto.style.display = 'none'; return; }
+
+  if (r.encontrado && r.activo) {
+    NU_CATALOGO_DATA = { nombre: r.nombre, puesto: r.puesto, email: r.email };
+    div.innerHTML = '<div style="background:#F0F9EF;padding:8px;border-radius:6px;font-size:12px">✓ <b>' + r.nombre + '</b> — ' + r.puesto + '<br>' + r.email + '</div>';
+    resto.style.display = 'block';
+  } else if (r.encontrado && !r.activo) {
+    div.innerHTML = '<div style="background:#FDECEC;padding:8px;border-radius:6px;font-size:12px;color:var(--rojo)">⚠️ Está en el Catálogo Maestro pero INACTIVO. Actívalo ahí primero.</div>';
+    resto.style.display = 'none';
+  } else {
+    NU_CATALOGO_DATA = { nombre: codigo, puesto: '', email: '' };
+    div.innerHTML = '<div style="background:#FFF2CD;padding:8px;border-radius:6px;font-size:12px">⚠️ No está en el Catálogo Maestro. Se creará como cuenta utilitaria (no ligada a una persona del catálogo).</div>';
+    resto.style.display = 'block';
+  }
+}
+
 async function guardarNuevoUsuario() {
-  const nombre = document.getElementById('nuNombre').value.trim();
-  const puesto = document.getElementById('nuPuesto').value.trim();
-  const email = document.getElementById('nuEmail').value.trim();
   const codigo = document.getElementById('nuCodigo').value.trim();
   const rol = document.getElementById('nuRol').value;
   const areasTxt = document.getElementById('nuAreas').value.trim();
   const areas = rol === 'corporativo' ? areasTxt.split(',').map(s => s.trim()).filter(Boolean) : null;
 
-  if (!nombre || !codigo) { mostrarToast('Falta nombre o código', true); return; }
+  if (!codigo || !NU_CATALOGO_DATA) { mostrarToast('Primero busca el código en el catálogo', true); return; }
 
-  const r = await apiPost({ action: 'crearUsuario', nombre, puesto, email, codigo, rol, areas, codigoSolicitante: SESSION.codigo });
+  const r = await apiPost({ action: 'crearUsuario', nombre: NU_CATALOGO_DATA.nombre, puesto: NU_CATALOGO_DATA.puesto, email: NU_CATALOGO_DATA.email, codigo, rol, areas, codigoSolicitante: SESSION.codigo });
   if (r.ok) {
     mostrarToast('✓ Usuario creado');
     verListaUsuarios();
