@@ -352,9 +352,9 @@ async function verListaUsuarios() {
   html += '</tbody></table>';
   if (puedeGestionar) {
     html += '<hr style="margin:16px 0"><h3 style="font-size:15px">+ Nuevo usuario</h3>' +
-      '<p style="font-size:11px;color:#666">Escribe el código del Catálogo Maestro de Grumasa y busca — así no se inventan identidades nuevas.</p>' +
-      '<label>Código del Catálogo Maestro</label>' +
-      '<div style="display:flex;gap:6px"><input type="text" id="nuCodigo" style="flex:1"><button class="btn secundario" onclick="buscarEnCatalogoUI()">🔍 Buscar</button></div>' +
+      '<p style="font-size:11px;color:#666">Busca por nombre, apellido o email — no hace falta saberse el código.</p>' +
+      '<label>Nombre, apellido o email</label>' +
+      '<div style="display:flex;gap:6px"><input type="text" id="nuTexto" style="flex:1" onkeydown="if(event.key===\'Enter\')buscarEnCatalogoUI()"><button class="btn secundario" onclick="buscarEnCatalogoUI()">🔍 Buscar</button></div>' +
       '<div id="nuResultadoCatalogo" style="margin-top:8px"></div>' +
       '<div id="nuFormResto" style="display:none">' +
       '<label>Rol en Pre-Opening Tracker</label><select id="nuRol" onchange="document.getElementById(\'nuAreasWrap\').style.display=this.value===\'corporativo\'?\'block\':\'none\'">' +
@@ -373,37 +373,56 @@ async function verListaUsuarios() {
 let NU_CATALOGO_DATA = null;
 
 async function buscarEnCatalogoUI() {
-  const codigo = document.getElementById('nuCodigo').value.trim();
-  if (!codigo) return;
-  const r = await apiGet({ action: 'buscarCatalogo', codigo, codigoSolicitante: SESSION.codigo });
+  const texto = document.getElementById('nuTexto').value.trim();
+  if (!texto) return;
+  const r = await apiGet({ action: 'buscarCatalogoTexto', texto, codigoSolicitante: SESSION.codigo });
   const div = document.getElementById('nuResultadoCatalogo');
   const resto = document.getElementById('nuFormResto');
   NU_CATALOGO_DATA = null;
-  if (!r.ok) { div.innerHTML = '<span style="color:var(--rojo)">' + (r.error || 'Error') + '</span>'; resto.style.display = 'none'; return; }
+  resto.style.display = 'none';
 
-  if (r.encontrado && r.activo) {
-    NU_CATALOGO_DATA = { nombre: r.nombre, puesto: r.puesto, email: r.email };
-    div.innerHTML = '<div style="background:#F0F9EF;padding:8px;border-radius:6px;font-size:12px">✓ <b>' + r.nombre + '</b> — ' + r.puesto + '<br>' + r.email + '</div>';
-    resto.style.display = 'block';
-  } else if (r.encontrado && !r.activo) {
-    div.innerHTML = '<div style="background:#FDECEC;padding:8px;border-radius:6px;font-size:12px;color:var(--rojo)">⚠️ Está en el Catálogo Maestro pero INACTIVO. Actívalo ahí primero.</div>';
-    resto.style.display = 'none';
-  } else {
-    NU_CATALOGO_DATA = { nombre: codigo, puesto: '', email: '' };
-    div.innerHTML = '<div style="background:#FFF2CD;padding:8px;border-radius:6px;font-size:12px">⚠️ No está en el Catálogo Maestro. Se creará como cuenta utilitaria (no ligada a una persona del catálogo).</div>';
-    resto.style.display = 'block';
+  if (!r.ok) { div.innerHTML = '<span style="color:var(--rojo)">' + (r.error || 'Error') + '</span>'; return; }
+
+  if (!r.resultados || r.resultados.length === 0) {
+    div.innerHTML = '<div style="background:#FFF2CD;padding:8px;border-radius:6px;font-size:12px">' +
+      'No se encontró nadie con ese nombre en el Catálogo Maestro. ' +
+      '<span class="ver-todos" onclick="crearComoUtilitaria(\'' + texto.replace(/'/g, "\\'") + '\')">Crear como cuenta utilitaria (no ligada a una persona real)</span></div>';
+    return;
   }
+
+  let html = '<div style="max-height:200px;overflow-y:auto">';
+  r.resultados.forEach(u => {
+    const estadoTxt = u.activo ? '' : ' <span style="color:var(--rojo)">(INACTIVO en catálogo)</span>';
+    html += '<div style="padding:6px;border:1px solid #eee;border-radius:6px;margin-bottom:4px;cursor:pointer" onclick="seleccionarDeCatalogo(\'' + u.codigo + '\',\'' + u.nombre.replace(/'/g, "\\'") + '\',\'' + (u.puesto || '').replace(/'/g, "\\'") + '\',\'' + (u.email || '') + '\',' + u.activo + ')">' +
+      '<b>' + u.nombre + '</b>' + estadoTxt + '<br><span style="color:#666;font-size:11px">' + u.puesto + ' · ' + u.email + ' · Código: ' + u.codigo + '</span></div>';
+  });
+  html += '</div>';
+  div.innerHTML = html;
+}
+
+function seleccionarDeCatalogo(codigo, nombre, puesto, email, activo) {
+  if (!activo) { mostrarToast('Esa persona está Inactiva en el Catálogo Maestro. Actívala ahí primero.', true); return; }
+  NU_CATALOGO_DATA = { codigo, nombre, puesto, email };
+  document.getElementById('nuResultadoCatalogo').innerHTML = '<div style="background:#F0F9EF;padding:8px;border-radius:6px;font-size:12px">✓ <b>' + nombre + '</b> — ' + puesto + '<br>' + email + ' · Código: ' + codigo + '</div>';
+  document.getElementById('nuFormResto').style.display = 'block';
+}
+
+function crearComoUtilitaria(nombreSugerido) {
+  const codigo = prompt('Esta cuenta no corresponde a una persona real del catálogo. Escribe un código único para ella (ej. VISOR2):');
+  if (!codigo) return;
+  NU_CATALOGO_DATA = { codigo: codigo.trim(), nombre: nombreSugerido || codigo, puesto: '', email: '' };
+  document.getElementById('nuResultadoCatalogo').innerHTML = '<div style="background:#FFF2CD;padding:8px;border-radius:6px;font-size:12px">⚠️ Cuenta utilitaria — <b>' + NU_CATALOGO_DATA.nombre + '</b> · Código: ' + NU_CATALOGO_DATA.codigo + '</div>';
+  document.getElementById('nuFormResto').style.display = 'block';
 }
 
 async function guardarNuevoUsuario() {
-  const codigo = document.getElementById('nuCodigo').value.trim();
   const rol = document.getElementById('nuRol').value;
   const areasTxt = document.getElementById('nuAreas').value.trim();
   const areas = rol === 'corporativo' ? areasTxt.split(',').map(s => s.trim()).filter(Boolean) : null;
 
-  if (!codigo || !NU_CATALOGO_DATA) { mostrarToast('Primero busca el código en el catálogo', true); return; }
+  if (!NU_CATALOGO_DATA) { mostrarToast('Primero busca y selecciona a la persona', true); return; }
 
-  const r = await apiPost({ action: 'crearUsuario', nombre: NU_CATALOGO_DATA.nombre, puesto: NU_CATALOGO_DATA.puesto, email: NU_CATALOGO_DATA.email, codigo, rol, areas, codigoSolicitante: SESSION.codigo });
+  const r = await apiPost({ action: 'crearUsuario', nombre: NU_CATALOGO_DATA.nombre, puesto: NU_CATALOGO_DATA.puesto, email: NU_CATALOGO_DATA.email, codigo: NU_CATALOGO_DATA.codigo, rol, areas, codigoSolicitante: SESSION.codigo });
   if (r.ok) {
     mostrarToast('✓ Usuario creado');
     verListaUsuarios();
