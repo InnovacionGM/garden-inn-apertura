@@ -158,7 +158,7 @@ let PROYECTOS_CACHE = [];
 let PROYECTO_ACTUAL_ID = null;
 
 function guardarSesion(s) { SESSION = s; localStorage.setItem('gia_session', JSON.stringify(s)); }
-function cerrarSesion() { localStorage.removeItem('gia_session'); SESSION = null; render(); }
+function cerrarSesion() { flushGuardadosPendientes_(); localStorage.removeItem('gia_session'); SESSION = null; render(); }
 
 function mostrarSpinner() { PENDIENTES_CARGAS++; document.getElementById('spinner').classList.add('activo'); }
 function ocultarSpinner() { PENDIENTES_CARGAS = Math.max(0, PENDIENTES_CARGAS - 1); if (PENDIENTES_CARGAS === 0) document.getElementById('spinner').classList.remove('activo'); }
@@ -470,6 +470,7 @@ function encabezadoImpresion_(contexto) {
 let DASHBOARD_CACHE = null;
 
 async function irADashboard() {
+  flushGuardadosPendientes_();
   VISTA_ACTUAL = 'dashboard';
   DEPTO_ACTUAL = null;
   await cargarDashboard();
@@ -539,6 +540,7 @@ function renderDashboard_() {
 // ===== DETALLE DE DEPARTAMENTO =====
 
 async function verDetalleDepto(depto) {
+  flushGuardadosPendientes_();
   DEPTO_ACTUAL = depto;
   SUBAREA_ACTIVA = '';
   VISTA_ACTUAL = 'depto';
@@ -799,7 +801,28 @@ function actualizarColorEstatusSelect(select) {
   select.style.color = c.color;
 }
 
-async function guardarCampo(id, campo, valor) {
+const RETRASO_AUTOGUARDADO_MS = 60000; // 60 segundos
+const TEMPORIZADORES_GUARDADO = {};
+
+function guardarCampo(id, campo, valor) {
+  const clave = id + '_' + campo;
+  if (TEMPORIZADORES_GUARDADO[clave]) clearTimeout(TEMPORIZADORES_GUARDADO[clave].timeoutId);
+  mostrarToast('⏳ Cambio registrado — se guardará en 60s');
+  const ejecutar = () => { delete TEMPORIZADORES_GUARDADO[clave]; guardarCampoAhora_(id, campo, valor); };
+  const timeoutId = setTimeout(ejecutar, RETRASO_AUTOGUARDADO_MS);
+  TEMPORIZADORES_GUARDADO[clave] = { timeoutId, ejecutar };
+}
+
+// Guarda de inmediato cualquier cambio que aún esté esperando sus 60s (al cambiar de vista, depto o cerrar sesión)
+function flushGuardadosPendientes_() {
+  Object.keys(TEMPORIZADORES_GUARDADO).forEach(clave => {
+    const t = TEMPORIZADORES_GUARDADO[clave];
+    clearTimeout(t.timeoutId);
+    t.ejecutar();
+  });
+}
+
+async function guardarCampoAhora_(id, campo, valor) {
   const depto = (ACTIVIDADES_CACHE.find(a => a.id === id) || {}).depto;
   const campos = {}; campos[campo] = valor;
   const r = await apiPost({ action: 'actualizar', id, depto, codigo: SESSION.codigo, campos });
@@ -883,6 +906,8 @@ function cerrarModal() {
   const ov = document.getElementById('overlayModal');
   if (ov) ov.remove();
 }
+
+window.addEventListener('beforeunload', () => { flushGuardadosPendientes_(); });
 
 render();
 </script>
