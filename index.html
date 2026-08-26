@@ -144,6 +144,7 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyRs1CgsCUZ6Uwt40CeKjsAKwYeHA5LFw6552mPndpCVXGXx7-xc_O17HqSBPbnuwZy/exec';
+const VERSION_APP = 'v13 (26-ago-2026)';
 const DEPARTAMENTOS_CANONICOS = ['A Y B', 'ADMINISTRACION', 'BANQUETES', 'CALIDAD', 'CAPACITACIÓN', 'CCTV',
   'COCINA', 'COMERCIAL', 'DIV. CUARTOS BOH', 'DIV. CUARTOS FOH', 'ENTRETENIMIENTO', 'GERENCIA GENERAL',
   'MANTENIMIENTO', 'RRHH', 'SEGURIDAD', 'SEGURIDAD INDUSTRIAL', 'SISTEMAS', 'SPA'];
@@ -374,7 +375,8 @@ function vistaHeader() {
     (puedeVerUsuarios ? ' <button class="volver" style="margin-left:10px" onclick="verListaUsuarios()">👥 Usuarios</button>' : '') +
     (puedeModoCorreccion ? ' <button class="volver" id="btnModoCorreccion" style="margin-left:10px" onclick="toggleModoCorreccion()">🛠️ Modo Corrección</button>' : '') +
     '</div>' +
-    '<button class="volver" onclick="cerrarSesion()">Salir</button></header>' +
+    '<div><span style="font-size:11px;color:#cbd5e1;margin-right:10px" title="Versión de la app">' + VERSION_APP + '</span>' +
+    '<button class="volver" onclick="cerrarSesion()">Salir</button></div></header>' +
     '<div class="barra-fecha"><span>📅 Hoy: ' + fechaHoyLegible_() + '</span>' +
     '<span id="diasAperturaSlot">Días para la apertura: —</span>' +
     (puedeEditarFechaApertura ? '<span><input type="date" id="inputFechaApertura"><button onclick="guardarFechaApertura()">Actualizar fecha de apertura</button></span>' : '') +
