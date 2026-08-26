@@ -81,6 +81,7 @@
   .estado-pill.completado-pill { background: #00CC00; }
   .estado-pill.na-pill { background: #BEBEBE; }
   .alerta-vencida { color: #b36b00; margin-right: 4px; }
+  .badge-nuevo { display:inline-block; background:#FFF176; color:#000; font-size:10px; font-weight:bold; padding:2px 6px; border-radius:4px; margin-right:4px; }
   .firma-rap { position: fixed; bottom: 8px; left: 12px; font-style: italic; font-family: 'Brush Script MT', cursive; color: #999; font-size: 13px; z-index: 50; pointer-events: none; }
 
   .comentario-resumen { font-size: 11px; color: #555; }
@@ -143,6 +144,9 @@
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyRs1CgsCUZ6Uwt40CeKjsAKwYeHA5LFw6552mPndpCVXGXx7-xc_O17HqSBPbnuwZy/exec';
+const DEPARTAMENTOS_CANONICOS = ['A Y B', 'ADMINISTRACION', 'BANQUETES', 'CALIDAD', 'CAPACITACIÓN', 'CCTV',
+  'COCINA', 'COMERCIAL', 'DIV. CUARTOS BOH', 'DIV. CUARTOS FOH', 'ENTRETENIMIENTO', 'GERENCIA GENERAL',
+  'MANTENIMIENTO', 'RRHH', 'SEGURIDAD', 'SEGURIDAD INDUSTRIAL', 'SISTEMAS', 'SPA'];
 
 let SESSION = JSON.parse(localStorage.getItem('gia_session') || 'null');
 let ACTIVIDADES_CACHE = [];
@@ -518,6 +522,8 @@ function renderDashboard_() {
     '<div class="item"><div class="etiqueta">EN PROCESO</div><div class="valor" style="color:var(--naranja)">' + tot.en_proceso + '</div></div>' +
     '<div class="item"><div class="etiqueta">COMPLETADOS</div><div class="valor" style="color:var(--verde)">' + tot.completado + '</div></div>' +
     '<div class="item"><div class="etiqueta">N/A</div><div class="valor" style="color:var(--gris-na)">' + tot.na + '</div></div>' +
+    '<div class="item"><div class="etiqueta">VENCIDAS</div><div class="valor" style="color:#b36b00">⚠️ ' + (r.totalVencidasGlobal || 0) + '</div></div>' +
+    '<div class="item"><div class="etiqueta">NUEVAS</div><div class="valor" style="color:#1d7a1d">🆕 ' + (r.totalNuevasGlobal || 0) + '</div></div>' +
     '</div><div class="barra-progreso"><div class="barra-progreso-relleno" style="width:' + pctGlobal + '%"></div></div></div>';
 
   html += '<div class="tarjetas">';
@@ -531,6 +537,7 @@ function renderDashboard_() {
       '<span style="color:var(--verde)">Comp: ' + d.completado + '</span>' +
       '<span style="color:var(--gris-na)">N/A: ' + d.na + '</span>' +
       (d.vencidas > 0 ? '<span style="color:var(--rojo)">⚠️ ' + d.vencidas + ' vencidas</span>' : '') +
+      (d.nuevas > 0 ? '<span style="color:#1d7a1d">🆕 ' + d.nuevas + ' nuevas</span>' : '') +
       '</div></div>';
   });
   html += '</div>';
@@ -563,13 +570,15 @@ function recomputarSubareasLocal_() {
   const resumen = {};
   ACTIVIDADES_CACHE.forEach(a => {
     const sub = a.subarea || '(Sin subárea)';
-    if (!resumen[sub]) resumen[sub] = { total: 0, completado: 0, en_proceso: 0, pendiente: 0, na: 0 };
+    if (!resumen[sub]) resumen[sub] = { total: 0, completado: 0, en_proceso: 0, pendiente: 0, na: 0, vencidas: 0, nuevas: 0 };
     const ds = resumen[sub];
     ds.total++;
     if (a.estatus === 'Completado') ds.completado++;
     else if (a.estatus === 'En Proceso') ds.en_proceso++;
     else if (a.estatus === 'N/A') ds.na++;
     else ds.pendiente++;
+    if (estaVencida_(a)) ds.vencidas++;
+    if (a.nueva) ds.nuevas++;
   });
   Object.keys(resumen).forEach(sub => {
     const ds = resumen[sub];
@@ -580,20 +589,42 @@ function recomputarSubareasLocal_() {
   return resumen;
 }
 
-function renderDetalleDepto_() {
-  const target = document.getElementById('main');
-  const puedeEditar = SESSION.puedeEditar;
+function calcularResumenDepto_() {
+  const r = { total: 0, completado: 0, en_proceso: 0, pendiente: 0, na: 0, vencidas: 0, nuevas: 0 };
+  ACTIVIDADES_CACHE.forEach(a => {
+    r.total++;
+    if (a.estatus === 'Completado') r.completado++;
+    else if (a.estatus === 'En Proceso') r.en_proceso++;
+    else if (a.estatus === 'N/A') r.na++;
+    else r.pendiente++;
+    if (estaVencida_(a)) r.vencidas++;
+    if (a.nueva) r.nuevas++;
+  });
+  const aplic = r.total - r.na;
+  r.porcentaje = aplic > 0 ? Math.round((r.completado / aplic) * 100) : 0;
+  return r;
+}
+
+function htmlResumenDepto_() {
+  const r = calcularResumenDepto_();
+  return '<div class="totales-globales" id="resumenDeptoTotal">' +
+    '<div class="totales-fila">' +
+    '<div class="item avance"><div class="etiqueta">AVANCE ' + DEPTO_ACTUAL + '</div><div class="valor">' + r.porcentaje + '%</div></div>' +
+    '<div class="item"><div class="etiqueta">TOTAL</div><div class="valor" style="color:var(--azul)">' + r.total + '</div></div>' +
+    '<div class="item"><div class="etiqueta">PENDIENTES</div><div class="valor" style="color:var(--rojo)">' + r.pendiente + '</div></div>' +
+    '<div class="item"><div class="etiqueta">EN PROCESO</div><div class="valor" style="color:var(--naranja)">' + r.en_proceso + '</div></div>' +
+    '<div class="item"><div class="etiqueta">COMPLETADOS</div><div class="valor" style="color:var(--verde)">' + r.completado + '</div></div>' +
+    '<div class="item"><div class="etiqueta">N/A</div><div class="valor" style="color:var(--gris-na)">' + r.na + '</div></div>' +
+    '<div class="item"><div class="etiqueta">VENCIDAS</div><div class="valor" style="color:#b36b00">⚠️ ' + r.vencidas + '</div></div>' +
+    '<div class="item"><div class="etiqueta">NUEVAS</div><div class="valor" style="color:#1d7a1d">🆕 ' + r.nuevas + '</div></div>' +
+    '</div></div>';
+}
+
+function htmlChipsYSubareas_() {
   const subareasResumen = recomputarSubareasLocal_();
   const subareas = Object.keys(subareasResumen).sort();
 
-  const contextoImpresion = 'Departamento: ' + DEPTO_ACTUAL + (SUBAREA_ACTIVA ? ' &gt; Subárea: ' + SUBAREA_ACTIVA : '');
-  let html = encabezadoImpresion_(contextoImpresion);
-
-  html += '<button class="btn secundario" onclick="irADashboard()" style="margin-bottom:14px">← Volver al dashboard</button>';
-  html += '<div style="font-size:20px;font-weight:bold;color:var(--azul)">' + ((DASHBOARD_CACHE && DASHBOARD_CACHE.nombreProyecto) || '').toUpperCase() + '</div>';
-  html += '<div class="encabezado-vista">Mostrando: ' + DEPTO_ACTUAL + (SUBAREA_ACTIVA ? ' &gt; ' + SUBAREA_ACTIVA : '') + '</div>';
-
-  html += '<div class="chips">';
+  let html = '<div class="chips">';
   html += '<span class="chip ' + (SUBAREA_ACTIVA === '' ? 'activo' : '') + '" onclick="seleccionarSubarea(\'\')">Todas</span>';
   subareas.forEach(sub => {
     html += '<span class="chip ' + (SUBAREA_ACTIVA === sub ? 'activo' : '') + '" onclick="seleccionarSubarea(\'' + sub.replace(/'/g, "\\'") + '\')">' + sub + '</span>';
@@ -605,9 +636,36 @@ function renderDetalleDepto_() {
     const ds = subareasResumen[sub];
     html += '<div class="subarea-card" onclick="seleccionarSubarea(\'' + sub.replace(/'/g, "\\'") + '\')">' +
       '<h4>' + sub + ' <span class="pct-chico">' + ds.porcentaje + '%</span></h4>' +
-      '<div class="conteos"><b class="p">Pend: ' + ds.pendiente + '</b> · <b class="e">Proc: ' + ds.en_proceso + '</b> · <b class="c">Comp: ' + ds.completado + '</b> · <b class="n">N/A: ' + ds.na + '</b> · Total: ' + ds.total + '</div></div>';
+      '<div class="conteos"><b class="p">Pend: ' + ds.pendiente + '</b> · <b class="e">Proc: ' + ds.en_proceso + '</b> · <b class="c">Comp: ' + ds.completado + '</b> · <b class="n">N/A: ' + ds.na + '</b> · Total: ' + ds.total +
+      (ds.vencidas > 0 ? ' · <span style="color:#b36b00">⚠️ ' + ds.vencidas + '</span>' : '') +
+      (ds.nuevas > 0 ? ' · <span style="color:#1d7a1d">🆕 ' + ds.nuevas + '</span>' : '') +
+      '</div></div>';
   });
   html += '</div>';
+  return html;
+}
+
+// Recalcula SOLO el resumen del depto y las tarjetas de subárea, sin tocar la tabla ni los campos que el usuario está editando
+function actualizarResumenSinRedibujarTabla_() {
+  const resumenEl = document.getElementById('resumenDeptoTotal');
+  const chipsWrapEl = document.getElementById('chipsYSubareasWrap');
+  if (resumenEl && resumenEl.parentElement) resumenEl.outerHTML = htmlResumenDepto_();
+  if (chipsWrapEl) chipsWrapEl.innerHTML = htmlChipsYSubareas_();
+}
+
+function renderDetalleDepto_() {
+  const target = document.getElementById('main');
+  const puedeEditar = SESSION.puedeEditar;
+
+  const contextoImpresion = 'Departamento: ' + DEPTO_ACTUAL + (SUBAREA_ACTIVA ? ' &gt; Subárea: ' + SUBAREA_ACTIVA : '');
+  let html = encabezadoImpresion_(contextoImpresion);
+
+  html += '<button class="btn secundario" onclick="irADashboard()" style="margin-bottom:14px">← Volver al dashboard</button>';
+  html += '<div style="font-size:20px;font-weight:bold;color:var(--azul)">' + ((DASHBOARD_CACHE && DASHBOARD_CACHE.nombreProyecto) || '').toUpperCase() + '</div>';
+  html += '<div class="encabezado-vista">Mostrando: ' + DEPTO_ACTUAL + (SUBAREA_ACTIVA ? ' &gt; ' + SUBAREA_ACTIVA : '') + '</div>';
+
+  html += htmlResumenDepto_();
+  html += '<div id="chipsYSubareasWrap">' + htmlChipsYSubareas_() + '</div>';
 
   html += '<div class="barra-acciones"><div class="izq">' +
     (SESSION.puedeEditar ? '<button class="btn" onclick="abrirModalNuevo(\'' + DEPTO_ACTUAL + '\')">+ Nuevo pendiente en ' + DEPTO_ACTUAL + '</button>' : '') +
@@ -660,7 +718,7 @@ function dibujarTabla(actividades, puedeEditar) {
   actividades.forEach(a => {
     const vencida = estaVencida_(a);
     html += '<tr class="' + (vencida ? 'vencida-alerta' : '') + '">' +
-      '<td>' + (vencida ? '<span class="alerta-vencida">⚠️</span>' : '') + '<span class="subarea-tag">' + (a.subarea || '') + '</span><br>' + a.actividad + '</td>' +
+      '<td>' + (vencida ? '<span class="alerta-vencida">⚠️</span>' : '') + (a.nueva ? '<span class="badge-nuevo">NUEVO</span> ' : '') + '<span class="subarea-tag">' + (a.subarea || '') + '</span><br>' + a.actividad + '</td>' +
       '<td>' + editableBloqueado(puedeEditar, a, 'responsable') + '</td>' +
       '<td>' + editableBloqueado(puedeEditar, a, 'co_responsable') + '</td>' +
       '<td>' + editableFecha(puedeEditar, a) + '</td>' +
@@ -834,7 +892,7 @@ async function guardarCampoAhora_(id, campo, valor) {
     } else {
       mostrarToast('✓ Guardado');
     }
-    renderDetalleDepto_(); // recalcula tarjetas de subárea al instante, sin ir al servidor
+    actualizarResumenSinRedibujarTabla_(); // solo recalcula tarjetas/encabezado, NO toca la tabla ni tus campos
   } else {
     mostrarToast(r.error || 'Error al guardar', true);
   }
@@ -870,7 +928,7 @@ function actualizarSugerenciasSubarea_(deptoForzado) {
 
 function obtenerDeptosEditables_() {
   if (SESSION.rol === 'corporativo') return SESSION.areas || [];
-  return ['GG','ADMIN','RH','SISTEMAS','COMERCIAL','AYB','BANQUETES','DIV. CUARTOS FOH','DIV. CUARTOS BOH','CALIDAD','SPA','MTTO','SEGURIDAD','SEG INDUSTRIAL','ENTRETENIMIENTO','CASINO'];
+  return DEPARTAMENTOS_CANONICOS;
 }
 
 async function guardarNuevoPendiente() {
