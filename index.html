@@ -160,6 +160,49 @@ let VISTA_ACTUAL = 'dashboard'; // 'dashboard' | 'depto'
 let PENDIENTES_CARGAS = 0;
 let PROYECTOS_CACHE = [];
 let PROYECTO_ACTUAL_ID = null;
+let MODO_CORRECCION_ACTIVO = false;
+let MODO_CORRECCION_CLAVE = '';
+
+function toggleModoCorreccion() {
+  if (MODO_CORRECCION_ACTIVO) {
+    MODO_CORRECCION_ACTIVO = false;
+    MODO_CORRECCION_CLAVE = '';
+    mostrarToast('Modo Corrección desactivado');
+  } else {
+    const clave = prompt('Clave secundaria para el Modo Corrección:');
+    if (!clave) return;
+    MODO_CORRECCION_CLAVE = clave;
+    MODO_CORRECCION_ACTIVO = true;
+    mostrarToast('Modo Corrección activado — se validará la clave con cada cambio');
+  }
+  const btn = document.getElementById('btnModoCorreccion');
+  if (btn) btn.style.background = MODO_CORRECCION_ACTIVO ? '#8B0101' : '';
+  if (VISTA_ACTUAL === 'depto') renderDetalleDepto_();
+}
+
+async function guardarCorreccion(id, campo, valor) {
+  const r = await apiPost({ action: 'corregirActividad', id, campos: { [campo]: valor }, codigo: SESSION.codigo, clave: MODO_CORRECCION_CLAVE });
+  if (r.ok) {
+    const act = ACTIVIDADES_CACHE.find(a => a.id === id);
+    if (act) act[campo] = valor;
+    mostrarToast('✓ Corrección guardada');
+    if (campo === 'depto') fetchDetalleDepto(); else actualizarResumenSinRedibujarTabla_();
+  } else {
+    mostrarToast(r.error || 'Error', true);
+    if ((r.error || '').indexOf('Clave') > -1) { MODO_CORRECCION_ACTIVO = false; MODO_CORRECCION_CLAVE = ''; }
+  }
+}
+
+async function confirmarBorrarActividad(id) {
+  if (!confirm('¿Borrar esta tarea por completo? No se puede deshacer.')) return;
+  const r = await apiPost({ action: 'borrarActividad', id, codigo: SESSION.codigo, clave: MODO_CORRECCION_CLAVE });
+  if (r.ok) {
+    mostrarToast('Tarea borrada');
+    fetchDetalleDepto();
+  } else {
+    mostrarToast(r.error || 'Error', true);
+  }
+}
 
 function guardarSesion(s) { SESSION = s; localStorage.setItem('gia_session', JSON.stringify(s)); }
 function cerrarSesion() { flushGuardadosPendientes_(); localStorage.removeItem('gia_session'); SESSION = null; render(); }
@@ -324,10 +367,12 @@ function vistaHeader() {
   const puedeEditarFechaApertura = ['RA1614', 'DC9169'].indexOf(SESSION.codigo) > -1;
   const esRob = SESSION.codigo === 'RA1614';
   const puedeVerUsuarios = ['RA1614', 'EQ1267'].indexOf(SESSION.codigo) > -1;
+  const puedeModoCorreccion = ['RA1614', 'EQ1267', 'RZ4060'].indexOf(SESSION.codigo) > -1;
 
   return '<header><div><h1>🏨 Grumasa Pre-Opening Tracker — ' + encabezadoPersona + '</h1>' +
     '<span id="docLinkSlot"></span><span id="selectorProyectoSlot"></span>' +
     (puedeVerUsuarios ? ' <button class="volver" style="margin-left:10px" onclick="verListaUsuarios()">👥 Usuarios</button>' : '') +
+    (puedeModoCorreccion ? ' <button class="volver" id="btnModoCorreccion" style="margin-left:10px" onclick="toggleModoCorreccion()">🛠️ Modo Corrección</button>' : '') +
     '</div>' +
     '<button class="volver" onclick="cerrarSesion()">Salir</button></header>' +
     '<div class="barra-fecha"><span>📅 Hoy: ' + fechaHoyLegible_() + '</span>' +
@@ -340,12 +385,15 @@ async function verListaUsuarios() {
   const r = await apiGet({ action: 'usuarios', codigo: SESSION.codigo });
   if (!r.ok) { mostrarToast(r.error || 'Error', true); return; }
   const puedeGestionar = ['RA1614', 'EQ1267'].indexOf(SESSION.codigo) > -1;
-  let html = '<div class="modal" style="max-width:680px"><h3>Usuarios del sistema</h3><table style="font-size:12px"><thead><tr><th></th><th>Nombre</th><th>Puesto</th><th>Código</th><th>Áreas</th><th>Estado</th>' + (puedeGestionar ? '<th></th>' : '') + '</tr></thead><tbody>';
+  let html = '<div class="modal" style="max-width:720px"><h3>Usuarios del sistema</h3><table style="font-size:12px"><thead><tr><th></th><th>Nombre</th><th>Puesto</th><th>Código</th><th>Áreas</th><th>Estado</th>' + (puedeGestionar ? '<th></th>' : '') + '</tr></thead><tbody>';
   r.usuarios.forEach(u => {
     const areasTxt = u.areas ? u.areas.join(', ') : 'Todas';
+    const areasVerTxt = u.areasVer ? ' <span style="color:#888">(ve tb: ' + u.areasVer.join(', ') + ')</span>' : '';
     const estadoTxt = u.activo ? '<span style="color:var(--verde)">Activo</span>' : '<span style="color:var(--rojo)">Inactivo</span>';
     const catIcono = u.enCatalogo ? '<span title="En Catálogo Maestro">📇</span>' : '<span title="Cuenta utilitaria, no está en el Catálogo Maestro">⚠️</span>';
-    html += '<tr><td>' + catIcono + '</td><td>' + u.nombre + '</td><td>' + u.puesto + '</td><td><b>' + u.codigo + '</b></td><td>' + areasTxt + '</td><td>' + estadoTxt + '</td>';
+    html += '<tr><td>' + catIcono + '</td><td>' + u.nombre + '</td><td>' + u.puesto + '</td>' +
+      '<td><b>' + u.codigo + '</b>' + (puedeGestionar ? ' <span class="ver-todos" onclick="editarCodigoUsuarioUI(\'' + u.codigo + '\')">✏️</span>' : '') + '</td>' +
+      '<td>' + areasTxt + areasVerTxt + '</td><td>' + estadoTxt + '</td>';
     if (puedeGestionar) {
       html += '<td>' + (u.activo
         ? '<button class="btn-borrar-comentario" onclick="cambiarEstadoUsuario(\'' + u.codigo + '\', false)" title="Inactivar">🗑️</button>'
@@ -366,12 +414,37 @@ async function verListaUsuarios() {
       '<option value="jefe">Jefe (ve y edita todo)</option>' +
       '<option value="master">Master (control total)</option>' +
       '<option value="lector">Solo lectura</option></select>' +
-      '<div id="nuAreasWrap"><label>Áreas (separadas por coma, ej: AYB,BANQUETES)</label><input type="text" id="nuAreas"></div>' +
+      '<div id="nuAreasWrap">' +
+      '<label>Áreas que EDITA</label>' + checkboxesDepartamentos_('nuAreasEditar') +
+      '<label style="margin-top:10px">Áreas que además puede VER (opcional)</label>' + checkboxesDepartamentos_('nuAreasVer') +
+      '</div>' +
       '<div class="acciones"><button class="btn" onclick="guardarNuevoUsuario()">Crear usuario</button></div>' +
       '</div>';
   }
   html += '<div class="acciones"><button class="btn secundario" onclick="cerrarModal()">Cerrar</button></div></div>';
   abrirOverlay(html);
+}
+
+function checkboxesDepartamentos_(prefijo) {
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;max-height:160px;overflow-y:auto;border:1px solid #eee;border-radius:6px;padding:8px;font-size:12px">';
+  DEPARTAMENTOS_CANONICOS.forEach(d => {
+    const id = prefijo + '_' + d.replace(/[^A-Z0-9]/gi, '_');
+    html += '<label style="font-weight:normal;margin:0;display:flex;align-items:center;gap:4px"><input type="checkbox" value="' + d + '" id="' + id + '" class="' + prefijo + '-check"> ' + d + '</label>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function leerDeptosMarcados_(prefijo) {
+  return Array.from(document.querySelectorAll('.' + prefijo + '-check:checked')).map(el => el.value);
+}
+
+async function editarCodigoUsuarioUI(codigoActual) {
+  const nuevo = prompt('Nuevo código para ' + codigoActual + ' (debe coincidir con su Codigo_Maestro real del Catálogo):');
+  if (!nuevo || !nuevo.trim()) return;
+  const r = await apiPost({ action: 'editarCodigoUsuario', codigoActual, codigoNuevo: nuevo.trim(), codigoSolicitante: SESSION.codigo });
+  if (r.ok) { mostrarToast('✓ Código actualizado'); verListaUsuarios(); }
+  else { mostrarToast(r.error || 'Error', true); }
 }
 
 let NU_CATALOGO_DATA = null;
@@ -421,12 +494,13 @@ function crearComoUtilitaria(nombreSugerido) {
 
 async function guardarNuevoUsuario() {
   const rol = document.getElementById('nuRol').value;
-  const areasTxt = document.getElementById('nuAreas').value.trim();
-  const areas = rol === 'corporativo' ? areasTxt.split(',').map(s => s.trim()).filter(Boolean) : null;
+  const areas = rol === 'corporativo' ? leerDeptosMarcados_('nuAreasEditar') : null;
+  const areasVer = rol === 'corporativo' ? leerDeptosMarcados_('nuAreasVer') : null;
 
   if (!NU_CATALOGO_DATA) { mostrarToast('Primero busca y selecciona a la persona', true); return; }
+  if (rol === 'corporativo' && areas.length === 0) { mostrarToast('Marca al menos un área que pueda editar', true); return; }
 
-  const r = await apiPost({ action: 'crearUsuario', nombre: NU_CATALOGO_DATA.nombre, puesto: NU_CATALOGO_DATA.puesto, email: NU_CATALOGO_DATA.email, codigo: NU_CATALOGO_DATA.codigo, rol, areas, codigoSolicitante: SESSION.codigo });
+  const r = await apiPost({ action: 'crearUsuario', nombre: NU_CATALOGO_DATA.nombre, puesto: NU_CATALOGO_DATA.puesto, email: NU_CATALOGO_DATA.email, codigo: NU_CATALOGO_DATA.codigo, rol, areas, areasVer, codigoSolicitante: SESSION.codigo });
   if (r.ok) {
     mostrarToast('✓ Usuario creado');
     verListaUsuarios();
@@ -514,16 +588,17 @@ function renderDashboard_() {
     '<button class="btn secundario" onclick="window.print()">🖨️ Exportar PDF</button></div>';
 
   html += '<div class="totales-globales">' +
-    '<div style="font-size:24px;font-weight:bold;color:var(--azul);margin-bottom:10px">' + (r.nombreProyecto || '').toUpperCase() + '</div>' +
+    '<div style="font-size:24px;font-weight:bold;color:var(--azul);margin-bottom:10px">' + (r.nombreProyecto || '').toUpperCase() +
+    ' <span style="font-size:14px;font-weight:normal;color:#888;border:1px solid #ddd;border-radius:12px;padding:2px 10px;vertical-align:middle">' + Object.keys(r.porDepto).length + ' ÁREAS</span></div>' +
     '<div class="totales-fila">' +
     '<div class="item avance"><div class="etiqueta">AVANCE GENERAL</div><div class="valor">' + pctGlobal + '%</div></div>' +
-    '<div class="item"><div class="etiqueta">TOTAL</div><div class="valor" style="color:var(--azul)">' + tot.total + '</div></div>' +
+    '<div class="item"><div class="etiqueta">TAREAS</div><div class="valor" style="color:var(--azul)">' + tot.total + '</div></div>' +
     '<div class="item"><div class="etiqueta">PENDIENTES</div><div class="valor" style="color:var(--rojo)">' + tot.pendiente + '</div></div>' +
     '<div class="item"><div class="etiqueta">EN PROCESO</div><div class="valor" style="color:var(--naranja)">' + tot.en_proceso + '</div></div>' +
     '<div class="item"><div class="etiqueta">COMPLETADOS</div><div class="valor" style="color:var(--verde)">' + tot.completado + '</div></div>' +
     '<div class="item"><div class="etiqueta">N/A</div><div class="valor" style="color:var(--gris-na)">' + tot.na + '</div></div>' +
-    '<div class="item"><div class="etiqueta">VENCIDAS</div><div class="valor" style="color:#b36b00">⚠️ ' + (r.totalVencidasGlobal || 0) + '</div></div>' +
-    '<div class="item"><div class="etiqueta">NUEVAS</div><div class="valor" style="color:#1d7a1d">🆕 ' + (r.totalNuevasGlobal || 0) + '</div></div>' +
+    '<div class="item" style="cursor:pointer" onclick="verVencidasONuevas(\'vencidas\')" title="Ver todas las vencidas"><div class="etiqueta">VENCIDAS</div><div class="valor" style="color:#b36b00">⚠️ ' + (r.totalVencidasGlobal || 0) + '</div></div>' +
+    '<div class="item" style="cursor:pointer" onclick="verVencidasONuevas(\'nuevas\')" title="Ver todas las nuevas"><div class="etiqueta">NUEVAS</div><div class="valor" style="color:#1d7a1d">🆕 ' + (r.totalNuevasGlobal || 0) + '</div></div>' +
     '</div><div class="barra-progreso"><div class="barra-progreso-relleno" style="width:' + pctGlobal + '%"></div></div></div>';
 
   html += '<div class="tarjetas">';
@@ -545,6 +620,35 @@ function renderDashboard_() {
 }
 
 // ===== DETALLE DE DEPARTAMENTO =====
+
+async function verVencidasONuevas(tipo) {
+  flushGuardadosPendientes_();
+  const r = await apiGet({ action: 'listar', proyecto: PROYECTO_ACTUAL_ID, depto: 'TODOS', codigo: SESSION.codigo });
+  if (!r.ok) { mostrarToast(r.error || 'Error', true); return; }
+
+  const filtradas = r.actividades.filter(a => tipo === 'vencidas' ? estaVencida_(a) : a.nueva);
+  const target = document.getElementById('main');
+  const titulo = tipo === 'vencidas' ? '⚠️ Todas las tareas vencidas' : '🆕 Todas las tareas nuevas';
+
+  let html = encabezadoImpresion_(titulo + ' (todos los departamentos)');
+  html += '<button class="btn secundario" onclick="irADashboard()" style="margin-bottom:14px">← Volver al dashboard</button>';
+  html += '<div class="encabezado-vista">' + titulo + ' — ' + filtradas.length + ' en total, en todos los departamentos</div>';
+  html += '<div id="tablaContenedor"></div>';
+  target.innerHTML = html;
+
+  let tabla = '<table><thead><tr><th>Depto</th><th>Subárea / Actividad</th><th>Responsable</th><th>Fecha compromiso</th><th>Estatus</th></tr></thead><tbody>';
+  filtradas.forEach(a => {
+    const vencida = estaVencida_(a);
+    tabla += '<tr class="' + (vencida ? 'vencida-alerta' : '') + '">' +
+      '<td><b>' + a.depto + '</b></td>' +
+      '<td>' + (a.nueva ? '<span class="badge-nuevo">NUEVO</span> ' : '') + (a.subarea || '') + '<br>' + a.actividad + '</td>' +
+      '<td>' + (a.responsable || '') + '</td>' +
+      '<td>' + formatearFecha(a.fecha_fin_plan) + '</td>' +
+      '<td><span class="estado-pill ' + claseEstatus_(a.estatus) + '-pill">' + a.estatus + '</span></td></tr>';
+  });
+  tabla += '</tbody></table>';
+  document.getElementById('tablaContenedor').innerHTML = tabla;
+}
 
 async function verDetalleDepto(depto) {
   flushGuardadosPendientes_();
@@ -714,28 +818,43 @@ function estaVencida_(a) {
 }
 
 function dibujarTabla(actividades, puedeEditar) {
-  let html = '<table><thead><tr><th>Subárea / Actividad</th><th>Responsable</th><th>Co-responsable</th><th>Fecha compromiso</th><th>Estatus</th><th>Comentarios</th></tr></thead><tbody>';
+  const corr = MODO_CORRECCION_ACTIVO;
+  let html = '<table><thead><tr><th>#</th>' + (corr ? '<th>Depto</th>' : '') + '<th>Subárea / Actividad</th><th>Responsable</th><th>Co-responsable</th><th>Fecha compromiso</th><th>Estatus</th><th>Comentarios</th>' + (corr ? '<th></th>' : '') + '</tr></thead><tbody>';
   actividades.forEach(a => {
     const vencida = estaVencida_(a);
     html += '<tr class="' + (vencida ? 'vencida-alerta' : '') + '">' +
-      '<td>' + (vencida ? '<span class="alerta-vencida">⚠️</span>' : '') + (a.nueva ? '<span class="badge-nuevo">NUEVO</span> ' : '') + '<span class="subarea-tag">' + (a.subarea || '') + '</span><br>' + a.actividad + '</td>' +
+      '<td style="color:#999;font-size:11px">' + (a.numero || '') + '</td>' +
+      (corr ? '<td>' + selectDeptoCorreccion_(a) + '</td>' : '') +
+      '<td>' + (vencida ? '<span class="alerta-vencida">⚠️</span>' : '') + (a.nueva ? '<span class="badge-nuevo">NUEVO</span> ' : '') +
+      (corr ? '<input class="edit" type="text" value="' + (a.subarea || '') + '" onchange="guardarCorreccion(\'' + a.id + '\',\'subarea\',this.value)" style="margin-bottom:4px">' +
+              '<textarea class="edit" rows="2" onchange="guardarCorreccion(\'' + a.id + '\',\'actividad\',this.value)">' + a.actividad + '</textarea>'
+            : '<span class="subarea-tag">' + (a.subarea || '') + '</span><br>' + a.actividad) + '</td>' +
       '<td>' + editableBloqueado(puedeEditar, a, 'responsable') + '</td>' +
       '<td>' + editableBloqueado(puedeEditar, a, 'co_responsable') + '</td>' +
       '<td>' + editableFecha(puedeEditar, a) + '</td>' +
       '<td>' + editableEstatus(puedeEditar, a.id, a.estatus) + '</td>' +
-      '<td style="min-width:200px">' + bloqueComentarios(puedeEditar, a.id, a.comentarios) + '</td></tr>';
+      '<td style="min-width:200px">' + bloqueComentarios(puedeEditar, a.id, a.comentarios) + '</td>' +
+      (corr ? '<td><button class="btn-borrar-comentario" onclick="confirmarBorrarActividad(\'' + a.id + '\')" title="Borrar tarea">🗑️</button></td>' : '') +
+      '</tr>';
   });
   html += '</tbody></table>';
 
-  let htmlImp = '<table><thead><tr><th>Subárea / Actividad</th><th>Responsable</th><th>Co-resp.</th><th>Fecha compromiso</th><th>Estatus</th><th>Últ. comentario</th></tr></thead><tbody>';
+  let htmlImp = '<table><thead><tr><th>#</th><th>Subárea / Actividad</th><th>Responsable</th><th>Co-resp.</th><th>Fecha compromiso</th><th>Estatus</th><th>Últ. comentario</th></tr></thead><tbody>';
   actividades.forEach(a => {
     const ultComentario = (a.comentarios && a.comentarios.length) ? a.comentarios[a.comentarios.length - 1].texto : '';
     const marca = estaVencida_(a) ? '⚠️ ' : '';
-    htmlImp += '<tr><td>' + marca + (a.subarea || '') + ' — ' + a.actividad + '</td><td>' + (a.responsable || '') + '</td><td>' + (a.co_responsable || '') + '</td><td>' + formatearFecha(a.fecha_fin_plan) + '</td><td>' + a.estatus + '</td><td>' + ultComentario + '</td></tr>';
+    htmlImp += '<tr><td>' + (a.numero || '') + '</td><td>' + marca + (a.subarea || '') + ' — ' + a.actividad + '</td><td>' + (a.responsable || '') + '</td><td>' + (a.co_responsable || '') + '</td><td>' + formatearFecha(a.fecha_fin_plan) + '</td><td>' + a.estatus + '</td><td>' + ultComentario + '</td></tr>';
   });
   htmlImp += '</tbody></table>';
 
   document.getElementById('tablaContenedor').innerHTML = '<div class="solo-pantalla">' + html + '</div><div class="solo-impresion">' + htmlImp + '</div>';
+}
+
+function selectDeptoCorreccion_(a) {
+  let html = '<select style="font-size:11px" onchange="guardarCorreccion(\'' + a.id + '\',\'depto\',this.value)">';
+  DEPARTAMENTOS_CANONICOS.forEach(d => html += '<option value="' + d + '" ' + (d === a.depto ? 'selected' : '') + '>' + d + '</option>');
+  html += '</select>';
+  return html;
 }
 
 function bloqueComentarios(puedeEditar, id, comentarios) {
