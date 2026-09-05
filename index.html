@@ -353,7 +353,7 @@ async function hacerLogin() {
   const codigo = document.getElementById('codigo').value.trim().toUpperCase();
   const r = await apiGet({ action: 'login', codigo });
   if (r.ok) {
-    guardarSesion({ codigo, rol: r.rol, areas: r.areas, nombre: r.nombre, puesto: r.puesto, puedeEditar: r.puedeEditar });
+    guardarSesion({ codigo: r.codigo || codigo, rol: r.rol, areas: r.areas, areasVer: r.areasVer, verTodo: r.verTodo, nombre: r.nombre, puesto: r.puesto, puedeEditar: r.puedeEditar });
     render();
   } else {
     document.getElementById('loginError').innerText = r.error || 'Código inválido';
