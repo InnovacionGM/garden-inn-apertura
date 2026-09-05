@@ -273,7 +273,7 @@ function actualizarSelectorProyecto_() {
     PROYECTOS_CACHE.forEach(p => html += '<option value="' + p.id + '" ' + (p.id === PROYECTO_ACTUAL_ID ? 'selected' : '') + '>' + p.nombre + '</option>');
     html += '</select>';
   }
-  if (SESSION.codigo === 'RA1614') {
+  if (['RA1614', 'EQ1267', 'DC1007'].indexOf(SESSION.codigo) > -1) {
     html += ' <button class="volver" style="margin-left:8px" onclick="abrirModalNuevoProyecto()">+ Nuevo proyecto</button>';
     if (PROYECTOS_CACHE.length > 1) {
       html += ' <button class="volver" style="margin-left:8px" onclick="confirmarInactivarProyecto()">🗑️ Inactivar proyecto</button>';
@@ -336,6 +336,8 @@ async function cargarConfig() {
   } else if (el) {
     el.innerHTML = '';
   }
+  const vBack = document.getElementById('versionBackendSlot');
+  if (vBack) vBack.textContent = r.ok && r.versionBackend ? (' · ' + r.versionBackend) : ' · backend: versión no disponible';
 }
 
 function vistaLogin() {
@@ -375,7 +377,7 @@ function vistaHeader() {
     (puedeVerUsuarios ? ' <button class="volver" style="margin-left:10px" onclick="verListaUsuarios()">👥 Usuarios</button>' : '') +
     (puedeModoCorreccion ? ' <button class="volver" id="btnModoCorreccion" style="margin-left:10px" onclick="toggleModoCorreccion()">🛠️ Modo Corrección</button>' : '') +
     '</div>' +
-    '<div><span style="font-size:11px;color:#cbd5e1;margin-right:10px" title="Versión de la app">' + VERSION_APP + '</span>' +
+    '<div><span style="font-size:11px;color:#cbd5e1;margin-right:10px" title="Versión de la app">' + VERSION_APP + '<span id="versionBackendSlot"></span></span>' +
     '<button class="volver" onclick="cerrarSesion()">Salir</button></div></header>' +
     '<div class="barra-fecha"><span>📅 Hoy: ' + fechaHoyLegible_() + '</span>' +
     '<span id="diasAperturaSlot">Días para la apertura: —</span>' +
