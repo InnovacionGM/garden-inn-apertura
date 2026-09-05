@@ -367,9 +367,9 @@ function fechaHoyLegible_() {
 
 function vistaHeader() {
   const encabezadoPersona = (SESSION.puesto ? SESSION.puesto : SESSION.rol) + ' — ' + (SESSION.nombre || '');
-  const puedeEditarFechaApertura = ['RA1614', 'DC9169'].indexOf(SESSION.codigo) > -1;
+  const puedeEditarFechaApertura = SESSION.rol === 'master' || SESSION.rol === 'jefe';
   const esRob = SESSION.codigo === 'RA1614';
-  const puedeVerUsuarios = ['RA1614', 'EQ1267'].indexOf(SESSION.codigo) > -1;
+  const puedeVerUsuarios = ['RA1614', 'EQ1267', 'DC1007'].indexOf(SESSION.codigo) > -1;
   const puedeModoCorreccion = ['RA1614', 'EQ1267', 'RZ4060'].indexOf(SESSION.codigo) > -1;
 
   return '<header><div><h1>🏨 Grumasa Pre-Opening Tracker — ' + encabezadoPersona + '</h1>' +
