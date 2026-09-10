@@ -374,6 +374,7 @@ function vistaHeader() {
 
   return '<header><div><h1>🏨 Grumasa Pre-Opening Tracker — ' + encabezadoPersona + '</h1>' +
     '<span id="docLinkSlot"></span><span id="selectorProyectoSlot"></span>' +
+    ' <button class="volver" style="margin-left:10px" onclick="verDotacion()">📦 Pedido Dotación Inicial</button>' +
     (puedeVerUsuarios ? ' <button class="volver" style="margin-left:10px" onclick="verListaUsuarios()">👥 Usuarios</button>' : '') +
     (puedeModoCorreccion ? ' <button class="volver" id="btnModoCorreccion" style="margin-left:10px" onclick="toggleModoCorreccion()">🛠️ Modo Corrección</button>' : '') +
     '</div>' +
@@ -550,6 +551,7 @@ function encabezadoImpresion_(contexto) {
 // ===== DASHBOARD =====
 
 let DASHBOARD_CACHE = null;
+let NOMBRE_PROYECTO_ACTUAL = '';
 
 async function irADashboard() {
   flushGuardadosPendientes_();
@@ -663,14 +665,13 @@ async function verDetalleDepto(depto) {
 }
 
 async function fetchDetalleDepto() {
-  const [rDash, rList] = await Promise.all([
-    apiGet({ action: 'dashboard', proyecto: PROYECTO_ACTUAL_ID, codigo: SESSION.codigo }),
+  const [rConfig, rList] = await Promise.all([
+    apiGet({ action: 'config', proyecto: PROYECTO_ACTUAL_ID }),
     apiGet({ action: 'listar', proyecto: PROYECTO_ACTUAL_ID, depto: DEPTO_ACTUAL, codigo: SESSION.codigo })
   ]);
   if (!rList.ok) { document.getElementById('main').innerHTML = '<p>Error: ' + rList.error + '</p>'; return; }
   ACTIVIDADES_CACHE = rList.actividades;
-  DASHBOARD_CACHE = rDash;
-  PORSUBAREA_GLOBAL = rDash.porSubarea || {};
+  NOMBRE_PROYECTO_ACTUAL = (rConfig && rConfig.nombreProyecto) || (DASHBOARD_CACHE && DASHBOARD_CACHE.nombreProyecto) || '';
   renderDetalleDepto_();
 }
 
@@ -769,7 +770,7 @@ function renderDetalleDepto_() {
   let html = encabezadoImpresion_(contextoImpresion);
 
   html += '<button class="btn secundario" onclick="irADashboard()" style="margin-bottom:14px">← Volver al dashboard</button>';
-  html += '<div style="font-size:20px;font-weight:bold;color:var(--azul)">' + ((DASHBOARD_CACHE && DASHBOARD_CACHE.nombreProyecto) || '').toUpperCase() + '</div>';
+  html += '<div style="font-size:20px;font-weight:bold;color:var(--azul)">' + (NOMBRE_PROYECTO_ACTUAL || (DASHBOARD_CACHE && DASHBOARD_CACHE.nombreProyecto) || '').toUpperCase() + '</div>';
   html += '<div class="encabezado-vista">Mostrando: ' + DEPTO_ACTUAL + (SUBAREA_ACTIVA ? ' &gt; ' + SUBAREA_ACTIVA : '') + '</div>';
 
   html += htmlResumenDepto_();
@@ -804,6 +805,163 @@ function aplicarFiltro() {
   const txt = document.getElementById('filtroTexto').value.toLowerCase();
   const filtradas = filtrarActividades_().filter(a => (!est || a.estatus === est) && (!txt || a.actividad.toLowerCase().includes(txt)));
   dibujarTabla(filtradas, SESSION.puedeEditar);
+}
+
+// ============ DOTACIÓN INICIAL ============
+
+let DOTACION_CACHE = [];
+let DOTACION_DEPTO_ACTIVO = '';
+
+async function verDotacion() {
+  flushGuardadosPendientes_();
+  const r = await apiGet({ action: 'listarDotacion', proyecto: PROYECTO_ACTUAL_ID, codigo: SESSION.codigo });
+  if (!r.ok) { mostrarToast(r.error || 'Error', true); return; }
+  DOTACION_CACHE = r.articulos;
+  VISTA_ACTUAL = 'dotacion';
+  const deptosConDatos = Array.from(new Set(DOTACION_CACHE.map(a => a.depto))).sort();
+  DOTACION_DEPTO_ACTIVO = deptosConDatos[0] || (SESSION.areas ? SESSION.areas[0] : '');
+  renderDotacion_();
+}
+
+function renderDotacion_() {
+  const target = document.getElementById('main');
+  const deptosDisponibles = (SESSION.rol === 'corporativo' && !SESSION.verTodo)
+    ? (SESSION.areasVer ? SESSION.areasVer.concat(SESSION.areas) : SESSION.areas)
+    : DEPARTAMENTOS_CANONICOS;
+
+  let html = '<button class="btn secundario" onclick="irADashboard()" style="margin-bottom:14px">← Volver al dashboard</button>';
+  html += '<div style="font-size:20px;font-weight:bold;color:var(--azul)">📦 PEDIDO DOTACIÓN INICIAL</div>';
+  html += '<div class="encabezado-vista">' + (NOMBRE_PROYECTO_ACTUAL || '').toUpperCase() + '</div>';
+
+  html += '<div class="chips">';
+  deptosDisponibles.forEach(d => {
+    html += '<span class="chip ' + (DOTACION_DEPTO_ACTIVO === d ? 'activo' : '') + '" onclick="seleccionarDeptoDotacion(\'' + d.replace(/'/g, "\\'") + '\')">' + d + '</span>';
+  });
+  html += '</div>';
+
+  const puedeEditarEsteDepto = validarAccesoLocal_(DOTACION_DEPTO_ACTIVO);
+  html += '<div class="barra-acciones"><div class="izq">' +
+    (puedeEditarEsteDepto ? '<button class="btn" onclick="abrirModalNuevoArticulo()">+ Nuevo artículo en ' + DOTACION_DEPTO_ACTIVO + '</button>' : '') +
+    '</div></div>';
+
+  html += '<div id="tablaDotacionContenedor"></div>';
+  target.innerHTML = html;
+  dibujarTablaDotacion_();
+}
+
+// Aproximación del lado del cliente de si puede editar este depto (la validación real siempre ocurre en el servidor)
+function validarAccesoLocal_(depto) {
+  if (SESSION.rol === 'master' || SESSION.rol === 'jefe') return true;
+  if (SESSION.rol === 'corporativo') return (SESSION.areas || []).indexOf(depto) > -1;
+  return false;
+}
+
+function seleccionarDeptoDotacion(depto) { DOTACION_DEPTO_ACTIVO = depto; renderDotacion_(); }
+
+function dibujarTablaDotacion_() {
+  const puedeEditar = validarAccesoLocal_(DOTACION_DEPTO_ACTIVO);
+  const items = DOTACION_CACHE.filter(a => a.depto === DOTACION_DEPTO_ACTIVO);
+  const cont = document.getElementById('tablaDotacionContenedor');
+  if (!cont) return;
+
+  if (items.length === 0) {
+    cont.innerHTML = '<p style="color:#888;margin-top:20px">Todavía no hay artículos cargados en ' + DOTACION_DEPTO_ACTIVO + '. ' + (puedeEditar ? 'Usa "+ Nuevo artículo" para empezar.' : '') + '</p>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>Artículo</th><th>Clasificación de Compra</th><th>Cantidad Solicitada</th><th>Justificación / Referencia</th><th>Comentarios</th>' + (puedeEditar ? '<th></th>' : '') + '</tr></thead><tbody>';
+  items.forEach(a => {
+    const bloqueada = a.cantidad_solicitada !== '' && a.cantidad_solicitada !== null && a.cantidad_solicitada !== undefined;
+    const puedeDesbloquear = ['RA1614', 'DC1007'].indexOf(SESSION.codigo) > -1;
+    const editableCampo = puedeEditar && (!bloqueada || puedeDesbloquear);
+
+    html += '<tr><td>' + a.articulo + '</td>';
+
+    if (editableCampo) {
+      html += '<td><select onchange="guardarCampoDotacion_(\'' + a.id + '\',\'clasificacion\',this.value)"><option value=""></option></select></td>';
+    } else {
+      html += '<td>' + (a.clasificacion || '') + (bloqueada ? ' 🔒' : '') + '</td>';
+    }
+
+    html += '<td>' + (editableCampo
+      ? '<input type="number" min="0" value="' + (a.cantidad_solicitada || '') + '" onchange="guardarCampoDotacion_(\'' + a.id + '\',\'cantidad_solicitada\',this.value)" style="width:80px">'
+      : (a.cantidad_solicitada || '') + (bloqueada ? ' 🔒' : '')) + '</td>';
+
+    html += '<td>' + (editableCampo
+      ? '<input type="text" value="' + (a.justificacion || '').replace(/"/g, '&quot;') + '" onchange="guardarCampoDotacion_(\'' + a.id + '\',\'justificacion\',this.value)">'
+      : (a.justificacion || '') + (bloqueada ? ' 🔒' : '')) + '</td>';
+
+    html += '<td>' + (puedeEditar
+      ? '<input type="text" value="' + (a.comentarios || '').replace(/"/g, '&quot;') + '" onchange="guardarCampoDotacion_(\'' + a.id + '\',\'comentarios\',this.value)">'
+      : (a.comentarios || '')) + '</td>';
+
+    if (puedeEditar) {
+      html += '<td><button class="btn-borrar-comentario" onclick="quitarArticuloDotacion(\'' + a.id + '\')" title="Quitar de la lista">✕</button></td>';
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  cont.innerHTML = html;
+
+  // Reemplazar el placeholder de opciones de clasificación en cada <select> recién insertado
+  cont.querySelectorAll('select').forEach((sel, i) => {
+    const item = items[i];
+    ['Estándar de Marca', 'Estándar de Calidad', 'Estándar Grumasa'].forEach(op => {
+      const opt = document.createElement('option');
+      opt.value = op; opt.textContent = op;
+      if (item.clasificacion === op) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+async function guardarCampoDotacion_(id, campo, valor) {
+  const item = DOTACION_CACHE.find(a => a.id === id);
+  const depto = item ? item.depto : DOTACION_DEPTO_ACTIVO;
+  const campos = {}; campos[campo] = valor;
+  const r = await apiPost({ action: 'actualizarDotacion', id, depto, codigo: SESSION.codigo, campos });
+  if (r.ok) {
+    if (item) item[campo] = valor;
+    mostrarToast('✓ Guardado');
+    dibujarTablaDotacion_();
+  } else {
+    mostrarToast(r.error || 'Error al guardar', true);
+  }
+}
+
+async function quitarArticuloDotacion(id) {
+  if (!confirm('¿Quitar este artículo de la lista? Seguirá existiendo pero ya no se mostrará.')) return;
+  const item = DOTACION_CACHE.find(a => a.id === id);
+  const depto = item ? item.depto : DOTACION_DEPTO_ACTIVO;
+  const r = await apiPost({ action: 'ocultarArticuloDotacion', id, depto, codigo: SESSION.codigo });
+  if (r.ok) {
+    DOTACION_CACHE = DOTACION_CACHE.filter(a => a.id !== id);
+    mostrarToast('Artículo quitado de la lista');
+    dibujarTablaDotacion_();
+  } else {
+    mostrarToast(r.error || 'Error', true);
+  }
+}
+
+function abrirModalNuevoArticulo() {
+  const html = '<div class="modal"><h3>+ Nuevo artículo en ' + DOTACION_DEPTO_ACTIVO + '</h3>' +
+    '<label>Nombre del artículo</label><input type="text" id="naArticulo">' +
+    '<div class="acciones"><button class="btn" onclick="guardarNuevoArticulo()">Agregar</button>' +
+    '<button class="btn secundario" onclick="cerrarModal()">Cancelar</button></div></div>';
+  abrirOverlay(html);
+}
+
+async function guardarNuevoArticulo() {
+  const articulo = document.getElementById('naArticulo').value.trim();
+  if (!articulo) { mostrarToast('Escribe el nombre del artículo', true); return; }
+  const r = await apiPost({ action: 'crearArticuloDotacion', proyecto: PROYECTO_ACTUAL_ID, depto: DOTACION_DEPTO_ACTIVO, articulo, codigo: SESSION.codigo });
+  if (r.ok) {
+    cerrarModal();
+    mostrarToast('✓ Artículo agregado');
+    verDotacion();
+  } else {
+    mostrarToast(r.error || 'Error', true);
+  }
 }
 
 function claseEstatus_(estatus) {
@@ -1090,10 +1248,31 @@ function cerrarModal() {
 
 window.addEventListener('beforeunload', () => { flushGuardadosPendientes_(); });
 
+function toggleAyuda() {
+  const panel = document.getElementById('panelAyuda');
+  if (panel) panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'block' : 'none';
+}
+
 render();
 </script>
 
 <div class="firma-rap">Diseñado por RAP</div>
+
+<button id="btnAyudaFlotante" onclick="toggleAyuda()" title="Ayuda"
+  style="position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:var(--azul);color:#fff;border:none;font-size:22px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.3);z-index:9999">❓</button>
+
+<div id="panelAyuda" style="display:none;position:fixed;bottom:88px;right:24px;width:320px;max-height:70vh;overflow-y:auto;background:#fff;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.25);padding:18px;z-index:9999;font-size:13px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <b style="font-size:15px;color:var(--azul)">Ayuda rápida</b>
+    <span onclick="toggleAyuda()" style="cursor:pointer;font-size:18px;color:#888">✕</span>
+  </div>
+  <p><b>🔒 Candado</b><br>El dato ya fue capturado y quedó bloqueado. Solo Roberto o Domenico pueden volver a cambiarlo.</p>
+  <p><b>🆕 NUEVO</b><br>Marca las tareas que no venían en la plantilla original — alguien las agregó a mano.</p>
+  <p><b>⚠️ Vencidas</b><br>Tareas cuya fecha de compromiso ya pasó y no están completadas ni marcadas N/A.</p>
+  <p><b>📦 Pedido Dotación Inicial</b><br>El pedido de materiales/equipos para la apertura, por departamento. Igual que las tareas: una vez que pones la cantidad, esa fila se bloquea.</p>
+  <p><b>🛠️ Modo Corrección</b><br>Solo para Roberto, Erika y Rag — permite corregir texto, subárea o departamento de una tarea mal creada, y borrar tareas por error, con una clave adicional.</p>
+  <p style="margin-top:14px;padding-top:10px;border-top:1px solid #eee">¿Duda que no está aquí? Escríbele directo a <b>Roberto Ávila</b>.</p>
+</div>
 
 </body>
 </html>
