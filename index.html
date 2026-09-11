@@ -373,8 +373,7 @@ function vistaHeader() {
   const puedeModoCorreccion = ['RA1614', 'EQ1267', 'RZ4060'].indexOf(SESSION.codigo) > -1;
 
   return '<header><div><h1>🏨 Grumasa Pre-Opening Tracker — ' + encabezadoPersona + '</h1>' +
-    '<span id="docLinkSlot"></span><span id="selectorProyectoSlot"></span>' +
-    ' <button class="volver" style="margin-left:10px" onclick="verDotacion()">📦 Pedido Dotación Inicial</button>' +
+    '<span id="selectorProyectoSlot"></span>' +
     (puedeVerUsuarios ? ' <button class="volver" style="margin-left:10px" onclick="verListaUsuarios()">👥 Usuarios</button>' : '') +
     (puedeModoCorreccion ? ' <button class="volver" id="btnModoCorreccion" style="margin-left:10px" onclick="toggleModoCorreccion()">🛠️ Modo Corrección</button>' : '') +
     '</div>' +
@@ -571,6 +570,7 @@ async function cargarDashboard() {
   FECHA_APERTURA_STR = r.fechaApertura;
   actualizarBarraDias_();
   renderDashboard_();
+  cargarConfig();
 }
 
 function renderDashboard_() {
@@ -595,7 +595,9 @@ function renderDashboard_() {
 
   html += '<div class="totales-globales">' +
     '<div style="font-size:24px;font-weight:bold;color:var(--azul);margin-bottom:10px">' + (r.nombreProyecto || '').toUpperCase() +
-    ' <span style="font-size:14px;font-weight:normal;color:#888;border:1px solid #ddd;border-radius:12px;padding:2px 10px;vertical-align:middle">' + Object.keys(r.porDepto).length + ' ÁREAS</span></div>' +
+    ' <span style="font-size:14px;font-weight:normal;color:#888;border:1px solid #ddd;border-radius:12px;padding:2px 10px;vertical-align:middle">' + Object.keys(r.porDepto).length + ' ÁREAS</span>' +
+    ' <span id="docLinkSlot"></span>' +
+    ' <button class="volver" style="margin-left:6px" onclick="verDotacion()">📦 Pedido Dotación Inicial</button></div>' +
     '<div class="totales-fila">' +
     '<div class="item avance"><div class="etiqueta">AVANCE GENERAL</div><div class="valor">' + pctGlobal + '%</div></div>' +
     '<div class="item"><div class="etiqueta">TAREAS</div><div class="valor" style="color:var(--azul)">' + tot.total + '</div></div>' +
