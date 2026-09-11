@@ -826,7 +826,7 @@ async function verDotacion() {
 function renderDotacion_() {
   const target = document.getElementById('main');
   const deptosDisponibles = (SESSION.rol === 'corporativo' && !SESSION.verTodo)
-    ? (SESSION.areasVer ? SESSION.areasVer.concat(SESSION.areas) : SESSION.areas)
+    ? Array.from(new Set(SESSION.areasVer ? SESSION.areasVer.concat(SESSION.areas) : SESSION.areas))
     : DEPARTAMENTOS_CANONICOS;
 
   let html = '<button class="btn secundario" onclick="irADashboard()" style="margin-bottom:14px">← Volver al dashboard</button>';
