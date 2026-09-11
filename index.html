@@ -97,6 +97,8 @@
   .filtros { margin-bottom: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
   .filtros select, .filtros input { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
   .volver { background: none; border: 1px solid white; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  .volver-claro { background: none; border: 1px solid var(--azul); color: var(--azul); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  .doc-link-claro { color: var(--azul); text-decoration: underline; font-size: 13px; margin-left: 6px; }
   .subarea-tag { font-size: 11px; color: var(--azul); font-weight: bold; }
   .cargando { text-align: center; padding: 40px; color: #999; }
 
@@ -332,7 +334,7 @@ async function cargarConfig() {
   const el = document.getElementById('docLinkSlot');
   if (r.ok && r.docFolderUrl) {
     DOC_FOLDER_URL = r.docFolderUrl;
-    if (el) el.innerHTML = '<a class="doc-link" href="' + DOC_FOLDER_URL + '" target="_blank">📁 Documentación</a>';
+    if (el) el.innerHTML = '<a class="doc-link-claro" href="' + DOC_FOLDER_URL + '" target="_blank">📁 Documentación</a>';
   } else if (el) {
     el.innerHTML = '';
   }
@@ -597,7 +599,8 @@ function renderDashboard_() {
     '<div style="font-size:24px;font-weight:bold;color:var(--azul);margin-bottom:10px">' + (r.nombreProyecto || '').toUpperCase() +
     ' <span style="font-size:14px;font-weight:normal;color:#888;border:1px solid #ddd;border-radius:12px;padding:2px 10px;vertical-align:middle">' + Object.keys(r.porDepto).length + ' ÁREAS</span>' +
     ' <span id="docLinkSlot"></span>' +
-    ' <button class="volver" style="margin-left:6px" onclick="verDotacion()">📦 Pedido Dotación Inicial</button></div>' +
+    ' <button class="volver-claro" style="margin-left:6px" onclick="verDotacion()">📦 Pedido Dotación Inicial</button>' +
+    ' <button class="volver-claro" style="margin-left:6px" onclick="mostrarToast(\'Staffing todavía no está disponible — muy pronto.\')">🧑‍💼 Staffing</button></div>' +
     '<div class="totales-fila">' +
     '<div class="item avance"><div class="etiqueta">AVANCE GENERAL</div><div class="valor">' + pctGlobal + '%</div></div>' +
     '<div class="item"><div class="etiqueta">TAREAS</div><div class="valor" style="color:var(--azul)">' + tot.total + '</div></div>' +
