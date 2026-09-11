@@ -874,45 +874,71 @@ function dibujarTablaDotacion_() {
     const bloqueada = a.cantidad_solicitada !== '' && a.cantidad_solicitada !== null && a.cantidad_solicitada !== undefined;
     const puedeDesbloquear = ['RA1614', 'DC1007'].indexOf(SESSION.codigo) > -1;
     const editableCampo = puedeEditar && (!bloqueada || puedeDesbloquear);
+    const idSeguro = a.id.replace(/[^a-zA-Z0-9]/g, '_');
 
     html += '<tr><td>' + a.articulo + '</td>';
 
     if (editableCampo) {
-      html += '<td><select onchange="guardarCampoDotacion_(\'' + a.id + '\',\'clasificacion\',this.value)"><option value=""></option></select></td>';
+      let selectHtml = '<select id="dotClasif_' + idSeguro + '"><option value=""></option>';
+      ['Estándar de Marca', 'Estándar de Calidad', 'Estándar Grumasa'].forEach(op => {
+        selectHtml += '<option value="' + op + '" ' + (a.clasificacion === op ? 'selected' : '') + '>' + op + '</option>';
+      });
+      selectHtml += '</select>';
+      html += '<td>' + selectHtml + '</td>';
     } else {
       html += '<td>' + (a.clasificacion || '') + (bloqueada ? ' 🔒' : '') + '</td>';
     }
 
     html += '<td>' + (editableCampo
-      ? '<input type="number" min="0" value="' + (a.cantidad_solicitada || '') + '" onchange="guardarCampoDotacion_(\'' + a.id + '\',\'cantidad_solicitada\',this.value)" style="width:80px">'
+      ? '<input type="number" min="0" id="dotCant_' + idSeguro + '" value="' + (a.cantidad_solicitada || '') + '" style="width:80px">'
       : (a.cantidad_solicitada || '') + (bloqueada ? ' 🔒' : '')) + '</td>';
 
     html += '<td>' + (editableCampo
-      ? '<input type="text" value="' + (a.justificacion || '').replace(/"/g, '&quot;') + '" onchange="guardarCampoDotacion_(\'' + a.id + '\',\'justificacion\',this.value)">'
+      ? '<input type="text" id="dotJust_' + idSeguro + '" value="' + (a.justificacion || '').replace(/"/g, '&quot;') + '">'
       : (a.justificacion || '') + (bloqueada ? ' 🔒' : '')) + '</td>';
 
     html += '<td>' + (puedeEditar
-      ? '<input type="text" value="' + (a.comentarios || '').replace(/"/g, '&quot;') + '" onchange="guardarCampoDotacion_(\'' + a.id + '\',\'comentarios\',this.value)">'
+      ? '<input type="text" id="dotCom_' + idSeguro + '" value="' + (a.comentarios || '').replace(/"/g, '&quot;') + '" onchange="guardarCampoDotacion_(\'' + a.id + '\',\'comentarios\',this.value)">'
       : (a.comentarios || '')) + '</td>';
 
     if (puedeEditar) {
-      html += '<td><button class="btn-borrar-comentario" onclick="quitarArticuloDotacion(\'' + a.id + '\')" title="Quitar de la lista">✕</button></td>';
+      html += '<td style="white-space:nowrap">';
+      if (editableCampo) {
+        html += '<button class="btn-borrar-comentario" style="color:var(--verde)" onclick="guardarFilaDotacion_(\'' + a.id + '\')" title="Guardar">✓</button> ';
+      }
+      if (!bloqueada) {
+        html += '<button class="btn-borrar-comentario" onclick="quitarArticuloDotacion(\'' + a.id + '\')" title="Quitar de la lista">✕</button>';
+      }
+      html += '</td>';
     }
     html += '</tr>';
   });
   html += '</tbody></table>';
   cont.innerHTML = html;
+}
 
-  // Reemplazar el placeholder de opciones de clasificación en cada <select> recién insertado
-  cont.querySelectorAll('select').forEach((sel, i) => {
-    const item = items[i];
-    ['Estándar de Marca', 'Estándar de Calidad', 'Estándar Grumasa'].forEach(op => {
-      const opt = document.createElement('option');
-      opt.value = op; opt.textContent = op;
-      if (item.clasificacion === op) opt.selected = true;
-      sel.appendChild(opt);
-    });
-  });
+async function guardarFilaDotacion_(id) {
+  const item = DOTACION_CACHE.find(a => a.id === id);
+  const depto = item ? item.depto : DOTACION_DEPTO_ACTIVO;
+  const idSeguro = id.replace(/[^a-zA-Z0-9]/g, '_');
+  const selClasif = document.getElementById('dotClasif_' + idSeguro);
+  const inpCant = document.getElementById('dotCant_' + idSeguro);
+  const inpJust = document.getElementById('dotJust_' + idSeguro);
+
+  const campos = {
+    clasificacion: selClasif ? selClasif.value : (item.clasificacion || ''),
+    cantidad_solicitada: inpCant ? inpCant.value : (item.cantidad_solicitada || ''),
+    justificacion: inpJust ? inpJust.value : (item.justificacion || '')
+  };
+
+  const r = await apiPost({ action: 'actualizarDotacion', id, depto, codigo: SESSION.codigo, campos });
+  if (r.ok) {
+    if (item) Object.assign(item, campos);
+    mostrarToast('✓ Guardado');
+    dibujarTablaDotacion_();
+  } else {
+    mostrarToast(r.error || 'Error al guardar', true);
+  }
 }
 
 async function guardarCampoDotacion_(id, campo, valor) {
@@ -923,7 +949,6 @@ async function guardarCampoDotacion_(id, campo, valor) {
   if (r.ok) {
     if (item) item[campo] = valor;
     mostrarToast('✓ Guardado');
-    dibujarTablaDotacion_();
   } else {
     mostrarToast(r.error || 'Error al guardar', true);
   }
