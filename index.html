@@ -389,7 +389,7 @@ function vistaHeader() {
 async function verListaUsuarios() {
   const r = await apiGet({ action: 'usuarios', codigo: SESSION.codigo });
   if (!r.ok) { mostrarToast(r.error || 'Error', true); return; }
-  const puedeGestionar = ['RA1614', 'EQ1267'].indexOf(SESSION.codigo) > -1;
+  const puedeGestionar = ['RA1614', 'EQ1267', 'DC1007'].indexOf(SESSION.codigo) > -1;
   let html = '<div class="modal" style="max-width:720px"><h3>Usuarios del sistema</h3><table style="font-size:12px"><thead><tr><th></th><th>Nombre</th><th>Puesto</th><th>Código</th><th>Áreas</th><th>Estado</th>' + (puedeGestionar ? '<th></th>' : '') + '</tr></thead><tbody>';
   r.usuarios.forEach(u => {
     const areasTxt = u.areas ? u.areas.join(', ') : 'Todas';
