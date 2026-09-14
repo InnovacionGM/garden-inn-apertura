@@ -97,7 +97,7 @@
   .filtros { margin-bottom: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
   .filtros select, .filtros input { padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
   .volver { background: none; border: 1px solid white; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-  .volver-claro { background: none; border: 1px solid var(--azul); color: var(--azul); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  .volver-claro { background: none; border: 1px solid var(--azul); color: var(--azul); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; line-height: 1.2; font-family: inherit; }
   .doc-link-claro { color: var(--azul); text-decoration: underline; font-size: 13px; margin-left: 6px; }
   .subarea-tag { font-size: 11px; color: var(--azul); font-weight: bold; }
   .cargando { text-align: center; padding: 40px; color: #999; }
@@ -137,6 +137,7 @@
     .tarjetas, .subarea-resumen, .totales-globales { page-break-inside: avoid; }
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -331,15 +332,46 @@ async function guardarNuevoProyecto() {
 async function cargarConfig() {
   const r = await apiGet({ action: 'config', proyecto: PROYECTO_ACTUAL_ID });
   DOC_FOLDER_URL = '';
+  const esGestor = SESSION && (SESSION.rol === 'master' || SESSION.rol === 'jefe');
+
   const el = document.getElementById('docLinkSlot');
-  if (r.ok && r.docFolderUrl) {
-    DOC_FOLDER_URL = r.docFolderUrl;
-    if (el) el.innerHTML = '<a class="volver-claro" style="text-decoration:none;display:inline-block" href="' + DOC_FOLDER_URL + '" target="_blank">📁 Documentación</a>';
-  } else if (el) {
-    el.innerHTML = '';
+  if (el) {
+    if (r.ok && r.docFolderUrl) {
+      DOC_FOLDER_URL = r.docFolderUrl;
+      el.innerHTML = '<a class="volver-claro" style="text-decoration:none;display:inline-block" href="' + DOC_FOLDER_URL + '" target="_blank">📁 Documentación</a>' +
+        (esGestor ? ' <span onclick="editarUrlProyecto_(\'docFolderUrl\')" style="cursor:pointer;color:#888" title="Cambiar link">✏️</span>' : '');
+    } else if (esGestor) {
+      el.innerHTML = '<button class="volver-claro" onclick="editarUrlProyecto_(\'docFolderUrl\')">📁 Documentación</button>';
+    } else {
+      el.innerHTML = '<button class="volver-claro" onclick="mostrarToast(\'Todavía no se ha configurado la documentación de este proyecto.\')">📁 Documentación</button>';
+    }
   }
+
+  const logoEl = document.getElementById('logoProyectoSlot');
+  if (logoEl) {
+    if (r.ok && r.logoUrl) {
+      logoEl.innerHTML = '<img src="' + r.logoUrl + '" alt="Logo" style="height:48px;max-width:110px;object-fit:contain;border-radius:6px" onerror="this.style.display=\'none\'">' +
+        (esGestor ? '<div onclick="editarUrlProyecto_(\'logoUrl\')" style="cursor:pointer;font-size:10px;color:#888;text-align:center">✏️ cambiar</div>' : '');
+    } else if (esGestor) {
+      logoEl.innerHTML = '<div onclick="editarUrlProyecto_(\'logoUrl\')" style="cursor:pointer;width:70px;height:48px;border:1px dashed #ccc;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;text-align:center">+ Logo</div>';
+    } else {
+      logoEl.innerHTML = '';
+    }
+  }
+
   const vBack = document.getElementById('versionBackendSlot');
   if (vBack) vBack.textContent = r.ok && r.versionBackend ? (' · ' + r.versionBackend) : ' · backend: versión no disponible';
+}
+
+async function editarUrlProyecto_(campo) {
+  const esLogo = campo === 'logoUrl';
+  const url = prompt(esLogo ? 'Pega el link de la imagen del logo (Drive, SharePoint, etc.):' : 'Pega el link de la carpeta de Documentación:');
+  if (url === null) return;
+  const body = { proyecto: PROYECTO_ACTUAL_ID, codigo: SESSION.codigo };
+  body[campo] = url.trim();
+  const r = await apiPost({ action: 'actualizarUrlsProyecto', ...body });
+  if (r.ok) { mostrarToast('✓ Guardado'); cargarConfig(); }
+  else { mostrarToast(r.error || 'Error', true); }
 }
 
 function vistaLogin() {
@@ -375,13 +407,13 @@ function vistaHeader() {
   const puedeModoCorreccion = ['RA1614', 'EQ1267', 'RZ4060'].indexOf(SESSION.codigo) > -1;
 
   return '<header><div><h1>🏨 Grumasa Pre-Opening Tracker — ' + encabezadoPersona + '</h1>' +
-    '<span id="selectorProyectoSlot"></span>' +
     (puedeVerUsuarios ? ' <button class="volver" style="margin-left:10px" onclick="verListaUsuarios()">👥 Usuarios</button>' : '') +
     (puedeModoCorreccion ? ' <button class="volver" id="btnModoCorreccion" style="margin-left:10px" onclick="toggleModoCorreccion()">🛠️ Modo Corrección</button>' : '') +
     '</div>' +
     '<div><span style="font-size:11px;color:#cbd5e1;margin-right:10px" title="Versión de la app">' + VERSION_APP + '<span id="versionBackendSlot"></span></span>' +
     '<button class="volver" onclick="cerrarSesion()">Salir</button></div></header>' +
     '<div class="barra-fecha"><span>📅 Hoy: ' + fechaHoyLegible_() + '</span>' +
+    '<span id="selectorProyectoSlot"></span>' +
     '<span id="diasAperturaSlot">Días para la apertura: —</span>' +
     (puedeEditarFechaApertura ? '<span><input type="date" id="inputFechaApertura"><button onclick="guardarFechaApertura()">Actualizar fecha de apertura</button></span>' : '') +
     '</div>';
@@ -596,11 +628,17 @@ function renderDashboard_() {
     '<button class="btn secundario" onclick="window.print()">🖨️ Exportar PDF</button></div>';
 
   html += '<div class="totales-globales">' +
-    '<div style="font-size:24px;font-weight:bold;color:var(--azul);margin-bottom:10px">' + (r.nombreProyecto || '').toUpperCase() +
+    '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+    '<span id="logoProyectoSlot"></span>' +
+    '<div style="flex:1;min-width:200px">' +
+    '<span style="font-size:24px;font-weight:bold;color:var(--azul)">' + (r.nombreProyecto || '').toUpperCase() + '</span>' +
     ' <span style="font-size:14px;font-weight:normal;color:#888;border:1px solid #ddd;border-radius:12px;padding:2px 10px;vertical-align:middle">' + Object.keys(r.porDepto).length + ' ÁREAS</span>' +
-    ' <span id="docLinkSlot"></span>' +
-    ' <button class="volver-claro" style="margin-left:6px" onclick="verDotacion()">📦 Pedido Dotación Inicial</button>' +
-    ' <button class="volver-claro" style="margin-left:6px" onclick="mostrarToast(\'Staffing todavía no está disponible — muy pronto.\')">🧑‍💼 Staffing</button></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+    '<span id="docLinkSlot"></span>' +
+    '<button class="volver-claro" onclick="verDotacion()">📦 Pedido Dotación Inicial</button>' +
+    '<button class="volver-claro" onclick="mostrarToast(\'Staffing todavía no está disponible — muy pronto.\')">🧑‍💼 Staffing</button>' +
+    '</div></div>' +
     '<div class="totales-fila">' +
     '<div class="item avance"><div class="etiqueta">AVANCE GENERAL</div><div class="valor">' + pctGlobal + '%</div></div>' +
     '<div class="item"><div class="etiqueta">TAREAS</div><div class="valor" style="color:var(--azul)">' + tot.total + '</div></div>' +
@@ -845,9 +883,12 @@ function renderDotacion_() {
   html += '</div>';
 
   const puedeVerTodoDotacion = SESSION.rol === 'master' || SESSION.rol === 'jefe' || SESSION.verTodo;
+  const puedeImportar = SESSION.rol === 'master' || SESSION.rol === 'jefe';
   const puedeEditarEsteDepto = validarAccesoLocal_(DOTACION_DEPTO_ACTIVO);
   html += '<div class="barra-acciones"><div class="izq">' +
     (puedeEditarEsteDepto ? '<button class="btn" onclick="abrirModalNuevoArticulo()">+ Nuevo artículo en ' + DOTACION_DEPTO_ACTIVO + '</button>' : '') +
+    (puedeImportar ? '<button class="btn secundario" onclick="document.getElementById(\'inputExcelDotacion\').click()">📤 Subir Excel</button>' +
+      '<input type="file" id="inputExcelDotacion" accept=".xlsx,.xls" style="display:none" onchange="subirExcelDotacion_(this)">' : '') +
     '</div>' +
     (puedeVerTodoDotacion ? '<button class="btn secundario" onclick="exportarDotacionCompletaPDF()">🖨️ Exportar PDF (todos los departamentos)</button>' : '') +
     '</div>';
@@ -866,9 +907,22 @@ function validarAccesoLocal_(depto) {
 
 function seleccionarDeptoDotacion(depto) { DOTACION_DEPTO_ACTIVO = depto; renderDotacion_(); }
 
+let ORDEN_DOTACION = { campo: null, asc: true };
+
+function ordenarDotacion_(campo) {
+  if (ORDEN_DOTACION.campo === campo) ORDEN_DOTACION.asc = !ORDEN_DOTACION.asc;
+  else { ORDEN_DOTACION.campo = campo; ORDEN_DOTACION.asc = true; }
+  dibujarTablaDotacion_();
+}
+
+function flechaOrden_(estadoOrden, campo) {
+  if (estadoOrden.campo !== campo) return '';
+  return estadoOrden.asc ? ' ▲' : ' ▼';
+}
+
 function dibujarTablaDotacion_() {
   const puedeEditar = validarAccesoLocal_(DOTACION_DEPTO_ACTIVO);
-  const items = DOTACION_CACHE.filter(a => a.depto === DOTACION_DEPTO_ACTIVO);
+  let items = DOTACION_CACHE.filter(a => a.depto === DOTACION_DEPTO_ACTIVO);
   const cont = document.getElementById('tablaDotacionContenedor');
   if (!cont) return;
 
@@ -877,14 +931,31 @@ function dibujarTablaDotacion_() {
     return;
   }
 
-  let html = '<table><thead><tr><th>Artículo</th><th>Clasificación de Compra</th><th>Cantidad Solicitada</th><th>Justificación / Referencia</th><th>Comentarios</th>' + (puedeEditar ? '<th></th>' : '') + '</tr></thead><tbody>';
+  if (ORDEN_DOTACION.campo) {
+    const campo = ORDEN_DOTACION.campo;
+    items = items.slice().sort((a, b) => {
+      let va = a[campo], vb = b[campo];
+      if (campo === 'numero') { va = Number(va) || 0; vb = Number(vb) || 0; return ORDEN_DOTACION.asc ? va - vb : vb - va; }
+      va = String(va || '').toLowerCase(); vb = String(vb || '').toLowerCase();
+      if (va < vb) return ORDEN_DOTACION.asc ? -1 : 1;
+      if (va > vb) return ORDEN_DOTACION.asc ? 1 : -1;
+      return 0;
+    });
+  }
+
+  let html = '<table><thead><tr>' +
+    '<th style="cursor:pointer" onclick="ordenarDotacion_(\'numero\')">#' + flechaOrden_(ORDEN_DOTACION, 'numero') + '</th>' +
+    '<th style="cursor:pointer" onclick="ordenarDotacion_(\'articulo\')">Artículo' + flechaOrden_(ORDEN_DOTACION, 'articulo') + '</th>' +
+    '<th style="cursor:pointer" onclick="ordenarDotacion_(\'clasificacion\')">Clasificación de Compra' + flechaOrden_(ORDEN_DOTACION, 'clasificacion') + '</th>' +
+    '<th style="cursor:pointer" onclick="ordenarDotacion_(\'cantidad_solicitada\')">Cantidad Solicitada' + flechaOrden_(ORDEN_DOTACION, 'cantidad_solicitada') + '</th>' +
+    '<th>Justificación / Referencia</th><th>Comentarios</th>' + (puedeEditar ? '<th></th>' : '') + '</tr></thead><tbody>';
   items.forEach(a => {
     const bloqueada = a.cantidad_solicitada !== '' && a.cantidad_solicitada !== null && a.cantidad_solicitada !== undefined;
     const puedeDesbloquear = ['RA1614', 'DC1007'].indexOf(SESSION.codigo) > -1;
     const editableCampo = puedeEditar && (!bloqueada || puedeDesbloquear);
     const idSeguro = a.id.replace(/[^a-zA-Z0-9]/g, '_');
 
-    html += '<tr><td>' + a.articulo + '</td>';
+    html += '<tr><td style="color:#999;font-size:11px">' + (a.numero || '') + '</td><td>' + a.articulo + '</td>';
 
     if (editableCampo) {
       let selectHtml = '<select id="dotClasif_' + idSeguro + '"><option value=""></option>';
@@ -1019,6 +1090,73 @@ async function guardarNuevoArticulo() {
   }
 }
 
+// Encabezados aceptados en el Excel (en minúscula, sin acentos) -> campo interno
+const MAPA_COLUMNAS_EXCEL_DOTACION = {
+  'departamento': 'depto', 'depto': 'depto',
+  'articulo': 'articulo', 'artículo': 'articulo',
+  'justificacion/referencia': 'justificacion', 'justificación/referencia': 'justificacion', 'justificacion': 'justificacion',
+  'cantidad solicitada': 'cantidad_solicitada', 'cantidad': 'cantidad_solicitada',
+  'clasificacion de compra': 'clasificacion', 'clasificación de compra': 'clasificacion', 'clasificacion': 'clasificacion',
+  'comentarios': 'comentarios'
+};
+
+function normalizarEncabezado_(txt) {
+  return String(txt || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+async function subirExcelDotacion_(inputEl) {
+  const file = inputEl.files[0];
+  if (!file) return;
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const sh = wb.Sheets[wb.SheetNames[0]];
+    const filasCrudas = XLSX.utils.sheet_to_json(sh, { defval: '' });
+
+    if (filasCrudas.length === 0) { mostrarToast('El archivo no tiene filas', true); inputEl.value = ''; return; }
+
+    // Detectar a qué campo interno corresponde cada columna del archivo
+    const encabezadosOriginales = Object.keys(filasCrudas[0]);
+    const mapaCol = {};
+    encabezadosOriginales.forEach(col => {
+      const norm = normalizarEncabezado_(col);
+      if (MAPA_COLUMNAS_EXCEL_DOTACION[norm]) mapaCol[col] = MAPA_COLUMNAS_EXCEL_DOTACION[norm];
+    });
+
+    if (!Object.values(mapaCol).includes('articulo')) {
+      mostrarToast('No encontré una columna "Artículo" en el archivo — revisa los nombres de las columnas', true);
+      inputEl.value = '';
+      return;
+    }
+
+    const filas = filasCrudas.map(fila => {
+      const obj = {};
+      Object.keys(mapaCol).forEach(colOriginal => { obj[mapaCol[colOriginal]] = String(fila[colOriginal] || '').trim(); });
+      return obj;
+    }).filter(f => f.articulo);
+
+    if (!confirm('Se leyeron ' + filas.length + ' filas del archivo. ¿Subirlas? (los artículos que ya existan se van a saltar solos, no se duplican)')) {
+      inputEl.value = '';
+      return;
+    }
+
+    const r = await apiPost({ action: 'importarDotacionExcel', proyecto: PROYECTO_ACTUAL_ID, filas, codigo: SESSION.codigo });
+    inputEl.value = '';
+    if (r.ok) {
+      let msg = '✓ ' + r.agregados + ' agregados, ' + r.saltados + ' ya existían';
+      if (r.deptoInvalido > 0) msg += ', ' + r.deptoInvalido + ' con depto no reconocido (se ignoraron)';
+      mostrarToast(msg);
+      verDotacion();
+    } else {
+      mostrarToast(r.error || 'Error al importar', true);
+    }
+  } catch (e) {
+    mostrarToast('No pude leer el archivo: ' + e.message, true);
+    inputEl.value = '';
+  }
+}
+
 function claseEstatus_(estatus) {
   if (estatus === 'Completado') return 'completado';
   if (estatus === 'En Proceso') return 'en-proceso';
@@ -1034,9 +1172,36 @@ function estaVencida_(a) {
   return fecha < hoy;
 }
 
+let ORDEN_ACTIVIDADES = { campo: null, asc: true };
+
+function ordenarActividades_(campo) {
+  if (ORDEN_ACTIVIDADES.campo === campo) ORDEN_ACTIVIDADES.asc = !ORDEN_ACTIVIDADES.asc;
+  else { ORDEN_ACTIVIDADES.campo = campo; ORDEN_ACTIVIDADES.asc = true; }
+  dibujarTabla(filtrarActividades_(), SESSION.puedeEditar);
+}
+
 function dibujarTabla(actividades, puedeEditar) {
   const corr = MODO_CORRECCION_ACTIVO;
-  let html = '<table><thead><tr><th>#</th>' + (corr ? '<th>Depto</th>' : '') + '<th>Subárea / Actividad</th><th>Responsable</th><th>Co-responsable</th><th>Fecha compromiso</th><th>Estatus</th><th>Comentarios</th>' + (corr ? '<th></th>' : '') + '</tr></thead><tbody>';
+  if (ORDEN_ACTIVIDADES.campo) {
+    const campo = ORDEN_ACTIVIDADES.campo;
+    actividades = actividades.slice().sort((a, b) => {
+      let va = a[campo], vb = b[campo];
+      if (campo === 'numero') { va = Number(va) || 0; vb = Number(vb) || 0; return ORDEN_ACTIVIDADES.asc ? va - vb : vb - va; }
+      va = String(va || '').toLowerCase(); vb = String(vb || '').toLowerCase();
+      if (va < vb) return ORDEN_ACTIVIDADES.asc ? -1 : 1;
+      if (va > vb) return ORDEN_ACTIVIDADES.asc ? 1 : -1;
+      return 0;
+    });
+  }
+  let html = '<table><thead><tr>' +
+    '<th style="cursor:pointer" onclick="ordenarActividades_(\'numero\')">#' + flechaOrden_(ORDEN_ACTIVIDADES, 'numero') + '</th>' +
+    (corr ? '<th>Depto</th>' : '') +
+    '<th>Subárea / Actividad</th>' +
+    '<th style="cursor:pointer" onclick="ordenarActividades_(\'responsable\')">Responsable' + flechaOrden_(ORDEN_ACTIVIDADES, 'responsable') + '</th>' +
+    '<th>Co-responsable</th>' +
+    '<th style="cursor:pointer" onclick="ordenarActividades_(\'fecha_fin_plan\')">Fecha compromiso' + flechaOrden_(ORDEN_ACTIVIDADES, 'fecha_fin_plan') + '</th>' +
+    '<th style="cursor:pointer" onclick="ordenarActividades_(\'estatus\')">Estatus' + flechaOrden_(ORDEN_ACTIVIDADES, 'estatus') + '</th>' +
+    '<th>Comentarios</th>' + (corr ? '<th></th>' : '') + '</tr></thead><tbody>';
   actividades.forEach(a => {
     const vencida = estaVencida_(a);
     html += '<tr class="' + (vencida ? 'vencida-alerta' : '') + '">' +
