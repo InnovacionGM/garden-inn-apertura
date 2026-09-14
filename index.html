@@ -350,10 +350,11 @@ async function cargarConfig() {
   const logoEl = document.getElementById('logoProyectoSlot');
   if (logoEl) {
     if (r.ok && r.logoUrl) {
-      logoEl.innerHTML = '<img src="' + r.logoUrl + '" alt="Logo" style="height:48px;max-width:110px;object-fit:contain;border-radius:6px" onerror="this.style.display=\'none\'">' +
-        (esGestor ? '<div onclick="editarUrlProyecto_(\'logoUrl\')" style="cursor:pointer;font-size:10px;color:#888;text-align:center">✏️ cambiar</div>' : '');
+      logoEl.innerHTML = '<div style="text-align:center;width:100%">' +
+        '<img src="' + r.logoUrl + '" alt="Logo" style="max-height:90px;max-width:120px;object-fit:contain;border-radius:6px" onerror="this.style.display=\'none\'">' +
+        (esGestor ? '<div onclick="editarUrlProyecto_(\'logoUrl\')" style="cursor:pointer;font-size:10px;color:#888;margin-top:4px">✏️ cambiar</div>' : '') + '</div>';
     } else if (esGestor) {
-      logoEl.innerHTML = '<div onclick="editarUrlProyecto_(\'logoUrl\')" style="cursor:pointer;width:70px;height:48px;border:1px dashed #ccc;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;text-align:center">+ Logo</div>';
+      logoEl.innerHTML = '<div onclick="editarUrlProyecto_(\'logoUrl\')" style="cursor:pointer;width:100%;height:90px;border:1px dashed #ccc;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#999;text-align:center;padding:6px">+ Agregar logo</div>';
     } else {
       logoEl.innerHTML = '';
     }
@@ -365,7 +366,7 @@ async function cargarConfig() {
 
 async function editarUrlProyecto_(campo) {
   const esLogo = campo === 'logoUrl';
-  const url = prompt(esLogo ? 'Pega el link de la imagen del logo (Drive, SharePoint, etc.):' : 'Pega el link de la carpeta de Documentación:');
+  const url = prompt(esLogo ? 'Pega el link para Compartir de Google Drive del logo (clic derecho en el archivo → Compartir → Copiar enlace). También funciona un link directo de imagen.' : 'Pega el link de la carpeta de Documentación:');
   if (url === null) return;
   const body = { proyecto: PROYECTO_ACTUAL_ID, codigo: SESSION.codigo };
   body[campo] = url.trim();
@@ -628,17 +629,17 @@ function renderDashboard_() {
     '<button class="btn secundario" onclick="window.print()">🖨️ Exportar PDF</button></div>';
 
   html += '<div class="totales-globales">' +
-    '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
-    '<span id="logoProyectoSlot"></span>' +
-    '<div style="flex:1;min-width:200px">' +
+    '<div style="display:flex;align-items:stretch;gap:16px">' +
+    '<div id="logoProyectoSlot" style="flex:0 0 130px;display:flex;align-items:center;justify-content:center"></div>' +
+    '<div style="flex:1;min-width:0">' +
+    '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">' +
     '<span style="font-size:24px;font-weight:bold;color:var(--azul)">' + (r.nombreProyecto || '').toUpperCase() + '</span>' +
-    ' <span style="font-size:14px;font-weight:normal;color:#888;border:1px solid #ddd;border-radius:12px;padding:2px 10px;vertical-align:middle">' + Object.keys(r.porDepto).length + ' ÁREAS</span>' +
-    '</div>' +
-    '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+    '<span style="font-size:14px;font-weight:normal;color:#888;border:1px solid #ddd;border-radius:12px;padding:2px 10px;vertical-align:middle">' + Object.keys(r.porDepto).length + ' ÁREAS</span>' +
+    '<span style="flex:1"></span>' +
     '<span id="docLinkSlot"></span>' +
     '<button class="volver-claro" onclick="verDotacion()">📦 Pedido Dotación Inicial</button>' +
     '<button class="volver-claro" onclick="mostrarToast(\'Staffing todavía no está disponible — muy pronto.\')">🧑‍💼 Staffing</button>' +
-    '</div></div>' +
+    '</div>' +
     '<div class="totales-fila">' +
     '<div class="item avance"><div class="etiqueta">AVANCE GENERAL</div><div class="valor">' + pctGlobal + '%</div></div>' +
     '<div class="item"><div class="etiqueta">TAREAS</div><div class="valor" style="color:var(--azul)">' + tot.total + '</div></div>' +
@@ -648,7 +649,8 @@ function renderDashboard_() {
     '<div class="item"><div class="etiqueta">N/A</div><div class="valor" style="color:var(--gris-na)">' + tot.na + '</div></div>' +
     '<div class="item" style="cursor:pointer" onclick="verVencidasONuevas(\'vencidas\')" title="Ver todas las vencidas"><div class="etiqueta">VENCIDAS</div><div class="valor" style="color:#b36b00">⚠️ ' + (r.totalVencidasGlobal || 0) + '</div></div>' +
     '<div class="item" style="cursor:pointer" onclick="verVencidasONuevas(\'nuevas\')" title="Ver todas las nuevas"><div class="etiqueta">NUEVAS</div><div class="valor" style="color:#1d7a1d">🆕 ' + (r.totalNuevasGlobal || 0) + '</div></div>' +
-    '</div><div class="barra-progreso"><div class="barra-progreso-relleno" style="width:' + pctGlobal + '%"></div></div></div>';
+    '</div><div class="barra-progreso"><div class="barra-progreso-relleno" style="width:' + pctGlobal + '%"></div></div>' +
+    '</div></div></div>';
 
   html += '<div class="tarjetas">';
   Object.keys(r.porDepto).sort().forEach(depto => {
@@ -708,6 +710,7 @@ async function verDetalleDepto(depto) {
 }
 
 async function fetchDetalleDepto() {
+  const t0 = performance.now();
   const [rConfig, rList] = await Promise.all([
     apiGet({ action: 'config', proyecto: PROYECTO_ACTUAL_ID }),
     apiGet({ action: 'listar', proyecto: PROYECTO_ACTUAL_ID, depto: DEPTO_ACTUAL, codigo: SESSION.codigo })
@@ -716,6 +719,10 @@ async function fetchDetalleDepto() {
   ACTIVIDADES_CACHE = rList.actividades;
   NOMBRE_PROYECTO_ACTUAL = (rConfig && rConfig.nombreProyecto) || (DASHBOARD_CACHE && DASHBOARD_CACHE.nombreProyecto) || '';
   renderDetalleDepto_();
+  const ms = Math.round(performance.now() - t0);
+  console.log('⏱️ Cargar ' + DEPTO_ACTUAL + ': ' + ms + ' ms');
+  const marca = document.getElementById('tiempoCargaSlot');
+  if (marca) marca.textContent = '⏱️ ' + ms + ' ms';
 }
 
 function recomputarSubareasLocal_() {
@@ -821,7 +828,8 @@ function renderDetalleDepto_() {
 
   html += '<div class="barra-acciones"><div class="izq">' +
     (SESSION.puedeEditar ? '<button class="btn" onclick="abrirModalNuevo(\'' + DEPTO_ACTUAL + '\')">+ Nuevo pendiente en ' + DEPTO_ACTUAL + '</button>' : '') +
-    '<button class="btn refrescar" onclick="fetchDetalleDepto()">🔄 Actualizar</button></div>' +
+    '<button class="btn refrescar" onclick="fetchDetalleDepto()">🔄 Actualizar</button>' +
+    '<span id="tiempoCargaSlot" style="font-size:11px;color:#999;margin-left:8px"></span></div>' +
     '<button class="btn secundario" onclick="window.print()">🖨️ Exportar PDF</button></div>';
 
   html += '<div class="filtros">' +
@@ -1112,31 +1120,37 @@ async function subirExcelDotacion_(inputEl) {
     const buffer = await file.arrayBuffer();
     const wb = XLSX.read(buffer, { type: 'array' });
     const sh = wb.Sheets[wb.SheetNames[0]];
-    const filasCrudas = XLSX.utils.sheet_to_json(sh, { defval: '' });
+    const filasArray = XLSX.utils.sheet_to_json(sh, { header: 1, defval: '', blankrows: false });
 
-    if (filasCrudas.length === 0) { mostrarToast('El archivo no tiene filas', true); inputEl.value = ''; return; }
+    if (filasArray.length === 0) { mostrarToast('El archivo no tiene filas', true); inputEl.value = ''; return; }
 
-    // Detectar a qué campo interno corresponde cada columna del archivo
-    const encabezadosOriginales = Object.keys(filasCrudas[0]);
-    const mapaCol = {};
-    encabezadosOriginales.forEach(col => {
-      const norm = normalizarEncabezado_(col);
-      if (MAPA_COLUMNAS_EXCEL_DOTACION[norm]) mapaCol[col] = MAPA_COLUMNAS_EXCEL_DOTACION[norm];
-    });
+    // Buscar en las primeras 15 filas cuál es la fila de encabezados reales
+    // (probando cuál tiene más coincidencias con las columnas que reconocemos)
+    let filaEncabezado = -1, mejorConteo = 0, mapaCol = {};
+    for (let i = 0; i < Math.min(15, filasArray.length); i++) {
+      const fila = filasArray[i];
+      const mapaProbado = {};
+      let conteo = 0;
+      fila.forEach((celda, colIdx) => {
+        const norm = normalizarEncabezado_(celda);
+        if (MAPA_COLUMNAS_EXCEL_DOTACION[norm]) { mapaProbado[colIdx] = MAPA_COLUMNAS_EXCEL_DOTACION[norm]; conteo++; }
+      });
+      if (conteo > mejorConteo) { mejorConteo = conteo; filaEncabezado = i; mapaCol = mapaProbado; }
+    }
 
-    if (!Object.values(mapaCol).includes('articulo')) {
-      mostrarToast('No encontré una columna "Artículo" en el archivo — revisa los nombres de las columnas', true);
+    if (filaEncabezado === -1 || !Object.values(mapaCol).includes('articulo')) {
+      mostrarToast('No encontré una columna "Artículo" en ninguna de las primeras 15 filas — revisa los nombres de las columnas', true);
       inputEl.value = '';
       return;
     }
 
-    const filas = filasCrudas.map(fila => {
+    const filas = filasArray.slice(filaEncabezado + 1).map(fila => {
       const obj = {};
-      Object.keys(mapaCol).forEach(colOriginal => { obj[mapaCol[colOriginal]] = String(fila[colOriginal] || '').trim(); });
+      Object.keys(mapaCol).forEach(colIdx => { obj[mapaCol[colIdx]] = String(fila[colIdx] || '').trim(); });
       return obj;
     }).filter(f => f.articulo);
 
-    if (!confirm('Se leyeron ' + filas.length + ' filas del archivo. ¿Subirlas? (los artículos que ya existan se van a saltar solos, no se duplican)')) {
+    if (!confirm('Encontré los encabezados en la fila ' + (filaEncabezado + 1) + '. Se leyeron ' + filas.length + ' filas con artículo. ¿Subirlas? (los que ya existan se saltan solos, no se duplican)')) {
       inputEl.value = '';
       return;
     }
