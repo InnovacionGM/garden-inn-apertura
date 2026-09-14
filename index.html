@@ -334,7 +334,7 @@ async function cargarConfig() {
   const el = document.getElementById('docLinkSlot');
   if (r.ok && r.docFolderUrl) {
     DOC_FOLDER_URL = r.docFolderUrl;
-    if (el) el.innerHTML = '<a class="doc-link-claro" href="' + DOC_FOLDER_URL + '" target="_blank">📁 Documentación</a>';
+    if (el) el.innerHTML = '<a class="volver-claro" style="text-decoration:none;display:inline-block" href="' + DOC_FOLDER_URL + '" target="_blank">📁 Documentación</a>';
   } else if (el) {
     el.innerHTML = '';
   }
@@ -844,10 +844,13 @@ function renderDotacion_() {
   });
   html += '</div>';
 
+  const puedeVerTodoDotacion = SESSION.rol === 'master' || SESSION.rol === 'jefe' || SESSION.verTodo;
   const puedeEditarEsteDepto = validarAccesoLocal_(DOTACION_DEPTO_ACTIVO);
   html += '<div class="barra-acciones"><div class="izq">' +
     (puedeEditarEsteDepto ? '<button class="btn" onclick="abrirModalNuevoArticulo()">+ Nuevo artículo en ' + DOTACION_DEPTO_ACTIVO + '</button>' : '') +
-    '</div></div>';
+    '</div>' +
+    (puedeVerTodoDotacion ? '<button class="btn secundario" onclick="exportarDotacionCompletaPDF()">🖨️ Exportar PDF (todos los departamentos)</button>' : '') +
+    '</div>';
 
   html += '<div id="tablaDotacionContenedor"></div>';
   target.innerHTML = html;
@@ -919,7 +922,29 @@ function dibujarTablaDotacion_() {
     html += '</tr>';
   });
   html += '</tbody></table>';
-  cont.innerHTML = html;
+  cont.innerHTML = '<div class="solo-pantalla">' + html + '</div><div class="solo-impresion" id="dotacionImpresionSlot"></div>';
+}
+
+function exportarDotacionCompletaPDF() {
+  const porDepto = {};
+  DOTACION_CACHE.forEach(a => {
+    if (!porDepto[a.depto]) porDepto[a.depto] = [];
+    porDepto[a.depto].push(a);
+  });
+
+  let html = encabezadoImpresion_('Pedido Dotación Inicial — Todos los departamentos');
+  Object.keys(porDepto).sort().forEach(depto => {
+    html += '<h3 style="margin-top:16px">' + depto + '</h3>';
+    html += '<table><thead><tr><th>Artículo</th><th>Clasificación</th><th>Cantidad</th><th>Justificación / Referencia</th><th>Comentarios</th></tr></thead><tbody>';
+    porDepto[depto].forEach(a => {
+      html += '<tr><td>' + a.articulo + '</td><td>' + (a.clasificacion || '') + '</td><td>' + (a.cantidad_solicitada || '') + '</td><td>' + (a.justificacion || '') + '</td><td>' + (a.comentarios || '') + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  });
+
+  const slot = document.getElementById('dotacionImpresionSlot');
+  if (slot) slot.innerHTML = html;
+  window.print();
 }
 
 async function guardarFilaDotacion_(id) {
