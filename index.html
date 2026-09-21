@@ -109,7 +109,7 @@
   .modal input, .modal select, .modal textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
   .modal .acciones { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
-  #toast { position: fixed; bottom: 20px; right: 20px; background: var(--verde); color: white; padding: 10px 18px; border-radius: 6px; font-size: 13px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  #toast { position: fixed; bottom: 90px; right: 20px; background: var(--verde); color: white; padding: 10px 18px; border-radius: 6px; font-size: 13px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; max-width: 360px; }
   #toast.mostrar { opacity: 1; }
   #toast.error { background: var(--rojo); }
 
@@ -1119,38 +1119,56 @@ async function subirExcelDotacion_(inputEl) {
   try {
     const buffer = await file.arrayBuffer();
     const wb = XLSX.read(buffer, { type: 'array' });
-    const sh = wb.Sheets[wb.SheetNames[0]];
-    const filasArray = XLSX.utils.sheet_to_json(sh, { header: 1, defval: '', blankrows: false });
 
-    if (filasArray.length === 0) { mostrarToast('El archivo no tiene filas', true); inputEl.value = ''; return; }
+    let filas = [];
+    let hojasProcesadas = [];
+    let hojasSinArticulo = [];
 
-    // Buscar en las primeras 15 filas cuál es la fila de encabezados reales
-    // (probando cuál tiene más coincidencias con las columnas que reconocemos)
-    let filaEncabezado = -1, mejorConteo = 0, mapaCol = {};
-    for (let i = 0; i < Math.min(15, filasArray.length); i++) {
-      const fila = filasArray[i];
-      const mapaProbado = {};
-      let conteo = 0;
-      fila.forEach((celda, colIdx) => {
-        const norm = normalizarEncabezado_(celda);
-        if (MAPA_COLUMNAS_EXCEL_DOTACION[norm]) { mapaProbado[colIdx] = MAPA_COLUMNAS_EXCEL_DOTACION[norm]; conteo++; }
-      });
-      if (conteo > mejorConteo) { mejorConteo = conteo; filaEncabezado = i; mapaCol = mapaProbado; }
-    }
+    wb.SheetNames.forEach(nombreHoja => {
+      const sh = wb.Sheets[nombreHoja];
+      const filasArray = XLSX.utils.sheet_to_json(sh, { header: 1, defval: '', blankrows: false });
+      if (filasArray.length === 0) return;
 
-    if (filaEncabezado === -1 || !Object.values(mapaCol).includes('articulo')) {
-      mostrarToast('No encontré una columna "Artículo" en ninguna de las primeras 15 filas — revisa los nombres de las columnas', true);
+      let filaEncabezado = -1, mejorConteo = 0, mapaCol = {};
+      for (let i = 0; i < Math.min(15, filasArray.length); i++) {
+        const fila = filasArray[i];
+        const mapaProbado = {};
+        let conteo = 0;
+        fila.forEach((celda, colIdx) => {
+          const norm = normalizarEncabezado_(celda);
+          if (MAPA_COLUMNAS_EXCEL_DOTACION[norm]) { mapaProbado[colIdx] = MAPA_COLUMNAS_EXCEL_DOTACION[norm]; conteo++; }
+        });
+        if (conteo > mejorConteo) { mejorConteo = conteo; filaEncabezado = i; mapaCol = mapaProbado; }
+      }
+
+      if (filaEncabezado === -1 || !Object.values(mapaCol).includes('articulo')) {
+        hojasSinArticulo.push(nombreHoja);
+        return;
+      }
+
+      const traeDepto = Object.values(mapaCol).includes('depto');
+      const filasHoja = filasArray.slice(filaEncabezado + 1).map(fila => {
+        const obj = {};
+        Object.keys(mapaCol).forEach(colIdx => { obj[mapaCol[colIdx]] = String(fila[colIdx] || '').trim(); });
+        if (!traeDepto) obj.depto = DOTACION_DEPTO_ACTIVO;
+        return obj;
+      }).filter(f => f.articulo);
+
+      filas = filas.concat(filasHoja);
+      hojasProcesadas.push(nombreHoja + ' (' + filasHoja.length + (traeDepto ? '' : ', sin depto → ' + DOTACION_DEPTO_ACTIVO) + ')');
+    });
+
+    if (filas.length === 0) {
+      mostrarToast('No encontré una columna "Artículo" en ninguna pestaña del archivo — revisa los nombres de las columnas', true);
       inputEl.value = '';
       return;
     }
 
-    const filas = filasArray.slice(filaEncabezado + 1).map(fila => {
-      const obj = {};
-      Object.keys(mapaCol).forEach(colIdx => { obj[mapaCol[colIdx]] = String(fila[colIdx] || '').trim(); });
-      return obj;
-    }).filter(f => f.articulo);
+    let resumen = 'Pestañas leídas: ' + hojasProcesadas.join(' · ');
+    if (hojasSinArticulo.length > 0) resumen += '\n\nPestañas ignoradas (sin columna Artículo reconocible): ' + hojasSinArticulo.join(', ');
+    resumen += '\n\nTotal: ' + filas.length + ' filas con artículo. ¿Subirlas? (los que ya existan se saltan solos, no se duplican)';
 
-    if (!confirm('Encontré los encabezados en la fila ' + (filaEncabezado + 1) + '. Se leyeron ' + filas.length + ' filas con artículo. ¿Subirlas? (los que ya existan se saltan solos, no se duplican)')) {
+    if (!confirm(resumen)) {
       inputEl.value = '';
       return;
     }
