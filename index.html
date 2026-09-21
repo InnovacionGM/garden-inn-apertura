@@ -152,7 +152,7 @@ const DEPARTAMENTOS_CANONICOS = ['A Y B', 'ADMINISTRACION', 'BANQUETES', 'CALIDA
   'COCINA', 'COMERCIAL', 'DIV. CUARTOS BOH', 'DIV. CUARTOS FOH', 'ENTRETENIMIENTO', 'GERENCIA GENERAL',
   'MANTENIMIENTO', 'RRHH', 'SEGURIDAD', 'SEGURIDAD INDUSTRIAL', 'SISTEMAS', 'SPA'];
 
-let SESSION = JSON.parse(localStorage.getItem('gia_session') || 'null');
+let SESSION = JSON.parse(sessionStorage.getItem('gia_session') || 'null');
 let ACTIVIDADES_CACHE = [];
 let PORSUBAREA_GLOBAL = {}; // { depto: { subarea: {...} } } de TODOS los deptos visibles (para sugerir subáreas al crear)
 let DOC_FOLDER_URL = '';
@@ -208,8 +208,23 @@ async function confirmarBorrarActividad(id) {
   }
 }
 
-function guardarSesion(s) { SESSION = s; localStorage.setItem('gia_session', JSON.stringify(s)); }
-function cerrarSesion() { flushGuardadosPendientes_(); localStorage.removeItem('gia_session'); SESSION = null; render(); }
+function guardarSesion(s) { SESSION = s; sessionStorage.setItem('gia_session', JSON.stringify(s)); reiniciarTemporizadorInactividad_(); }
+function cerrarSesion() { flushGuardadosPendientes_(); sessionStorage.removeItem('gia_session'); SESSION = null; render(); }
+
+// Cierra la sesión sola tras 30 minutos sin actividad
+const MINUTOS_INACTIVIDAD = 30;
+let TEMPORIZADOR_INACTIVIDAD = null;
+function reiniciarTemporizadorInactividad_() {
+  if (TEMPORIZADOR_INACTIVIDAD) clearTimeout(TEMPORIZADOR_INACTIVIDAD);
+  if (!SESSION) return;
+  TEMPORIZADOR_INACTIVIDAD = setTimeout(() => {
+    if (SESSION) { mostrarToast('Sesión cerrada por inactividad'); cerrarSesion(); }
+  }, MINUTOS_INACTIVIDAD * 60 * 1000);
+}
+['mousedown', 'keydown', 'click', 'touchstart', 'scroll'].forEach(evento => {
+  document.addEventListener(evento, () => { if (SESSION) reiniciarTemporizadorInactividad_(); }, { passive: true });
+});
+if (SESSION) reiniciarTemporizadorInactividad_();
 
 function mostrarSpinner() { PENDIENTES_CARGAS++; document.getElementById('spinner').classList.add('activo'); }
 function ocultarSpinner() { PENDIENTES_CARGAS = Math.max(0, PENDIENTES_CARGAS - 1); if (PENDIENTES_CARGAS === 0) document.getElementById('spinner').classList.remove('activo'); }
