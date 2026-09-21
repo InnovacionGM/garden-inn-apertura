@@ -1179,28 +1179,41 @@ async function subirExcelDotacion_(inputEl) {
       return;
     }
 
-    let resumen = 'Pestañas leídas: ' + hojasProcesadas.join(' · ');
-    if (hojasSinArticulo.length > 0) resumen += '\n\nPestañas ignoradas (sin columna Artículo reconocible): ' + hojasSinArticulo.join(', ');
-    resumen += '\n\nTotal: ' + filas.length + ' filas con artículo. ¿Subirlas? (los que ya existan se saltan solos, no se duplican)';
+    let resumenHtml = '<b>Pestañas leídas:</b><br>' + hojasProcesadas.join('<br>');
+    if (hojasSinArticulo.length > 0) resumenHtml += '<br><br><b>Pestañas ignoradas</b> (sin columna Artículo reconocible): ' + hojasSinArticulo.join(', ');
+    resumenHtml += '<br><br><b>Total: ' + filas.length + ' filas con artículo.</b>';
 
-    if (!confirm(resumen)) {
-      inputEl.value = '';
-      return;
-    }
-
-    const r = await apiPost({ action: 'importarDotacionExcel', proyecto: PROYECTO_ACTUAL_ID, filas, codigo: SESSION.codigo });
+    FILAS_EXCEL_DOTACION_PENDIENTE = filas;
+    const html = '<div class="modal"><h3>📤 Confirmar subida de Excel</h3>' +
+      '<div style="font-size:13px;line-height:1.6">' + resumenHtml + '</div>' +
+      '<p style="font-size:12px;color:#888;margin-top:10px">Los artículos que ya existan (mismo departamento + mismo nombre) se saltan solos, no se duplican.</p>' +
+      '<div class="acciones"><button class="btn" onclick="confirmarSubidaExcelDotacion_()">Subir ' + filas.length + ' filas</button>' +
+      '<button class="btn secundario" onclick="cerrarModal(); document.getElementById(\'inputExcelDotacion\').value=\'\';">Cancelar</button></div></div>';
+    abrirOverlay(html);
     inputEl.value = '';
-    if (r.ok) {
-      let msg = '✓ ' + r.agregados + ' agregados, ' + r.saltados + ' ya existían';
-      if (r.deptoInvalido > 0) msg += ', ' + r.deptoInvalido + ' con depto no reconocido (se ignoraron)';
-      mostrarToast(msg);
-      verDotacion();
-    } else {
-      mostrarToast(r.error || 'Error al importar', true);
-    }
   } catch (e) {
     mostrarToast('No pude leer el archivo: ' + e.message, true);
     inputEl.value = '';
+  }
+}
+
+let FILAS_EXCEL_DOTACION_PENDIENTE = null;
+
+async function confirmarSubidaExcelDotacion_() {
+  const filas = FILAS_EXCEL_DOTACION_PENDIENTE;
+  cerrarModal();
+  if (!filas) return;
+  mostrarToast('Subiendo...');
+  const r = await apiPost({ action: 'importarDotacionExcel', proyecto: PROYECTO_ACTUAL_ID, filas, codigo: SESSION.codigo });
+  FILAS_EXCEL_DOTACION_PENDIENTE = null;
+  if (r.ok) {
+    let msg = '✓ ' + r.agregados + ' agregados, ' + r.saltados + ' ya existían';
+    if (r.deptoInvalido > 0) msg += ', ' + r.deptoInvalido + ' con depto no reconocido (se ignoraron)';
+    if (r.sinDatos > 0) msg += ', ' + r.sinDatos + ' sin artículo o depto (se ignoraron)';
+    mostrarToast(msg);
+    verDotacion();
+  } else {
+    mostrarToast(r.error || 'Error al importar', true);
   }
 }
 
