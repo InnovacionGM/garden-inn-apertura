@@ -610,6 +610,7 @@ async function irADashboard() {
 }
 
 async function cargarDashboard() {
+  const t0 = performance.now();
   const r = await apiGet({ action: 'dashboard', proyecto: PROYECTO_ACTUAL_ID, codigo: SESSION.codigo });
   const main = document.getElementById('main');
   if (!r.ok) { main.innerHTML = '<p>Error: ' + r.error + '</p>'; return; }
@@ -621,6 +622,10 @@ async function cargarDashboard() {
   actualizarBarraDias_();
   renderDashboard_();
   cargarConfig();
+  const ms = Math.round(performance.now() - t0);
+  console.log('⏱️ Cargar dashboard: ' + ms + ' ms');
+  const marca = document.getElementById('tiempoCargaDashboardSlot');
+  if (marca) marca.textContent = '⏱️ ' + ms + ' ms';
 }
 
 function renderDashboard_() {
@@ -640,7 +645,8 @@ function renderDashboard_() {
 
   html += '<div class="barra-acciones"><div class="izq">' +
     (puedeCrear ? '<button class="btn" onclick="abrirModalNuevo()">+ Nuevo pendiente</button>' : '') +
-    '<button class="btn refrescar" onclick="cargarDashboard()">🔄 Actualizar</button></div>' +
+    '<button class="btn refrescar" onclick="cargarDashboard()">🔄 Actualizar</button>' +
+    '<span id="tiempoCargaDashboardSlot" style="font-size:11px;color:#999;margin-left:8px"></span></div>' +
     '<button class="btn secundario" onclick="window.print()">🖨️ Exportar PDF</button></div>';
 
   html += '<div class="totales-globales">' +
